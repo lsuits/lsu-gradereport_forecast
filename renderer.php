@@ -15,23 +15,19 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Renderer for the grade user report
+ * Renderer for the grade forecast report
  *
- * @package   gradereport_user
- * @copyright 2010 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package   gradereport_forecast
  */
 
 /**
- * Custom renderer for the user grade report
+ * Custom renderer for the grade forecast report
  *
  * To get an instance of this use the following code:
- * $renderer = $PAGE->get_renderer('gradereport_user');
+ * $renderer = $PAGE->get_renderer('gradereport_forecast');
  *
- * @copyright 2010 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class gradereport_user_renderer extends plugin_renderer_base {
+class gradereport_forecast_renderer extends plugin_renderer_base {
 
     public function graded_users_selector($report, $course, $userid, $groupid, $includeall) {
         global $USER;

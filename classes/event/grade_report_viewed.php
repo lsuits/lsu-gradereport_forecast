@@ -15,24 +15,19 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * User report viewed event.
+ * Forecast report viewed event.
  *
- * @package    gradereport_user
- * @copyright  2014 Adrian Greeve <adrian@moodle.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    gradereport_forecast
  */
 
-namespace gradereport_user\event;
+namespace gradereport_forecast\event;
 
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * User report viewed event class.
+ * Forecast report viewed event class.
  *
- * @package    gradereport_user
- * @since      Moodle 2.8
- * @copyright  2014 Adrian Greeve <adrian@moodle.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    gradereport_forecast
  */
 class grade_report_viewed extends \core\event\grade_report_viewed {
 
@@ -51,7 +46,7 @@ class grade_report_viewed extends \core\event\grade_report_viewed {
      * @return string
      */
     public static function get_name() {
-        return get_string('eventgradereportviewed', 'gradereport_user');
+        return get_string('eventgradereportviewed', 'gradereport_forecast');
     }
 
     /**

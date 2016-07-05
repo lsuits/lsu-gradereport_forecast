@@ -15,31 +15,29 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * User grade report external functions and service definitions.
+ * Forecast grade report external functions and service definitions.
  *
- * @package    gradereport_user
- * @copyright  2015 Juan Leyva <juan@moodle.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    gradereport_forecast
  */
 
 $functions = array(
 
-    'gradereport_user_get_grades_table' => array(
-        'classname' => 'gradereport_user_external',
+    'gradereport_forecast_get_grades_table' => array(
+        'classname' => 'gradereport_forecast_external',
         'methodname' => 'get_grades_table',
-        'classpath' => 'grade/report/user/externallib.php',
-        'description' => 'Get the user/s report grades table for a course',
+        'classpath' => 'grade/report/forecast/externallib.php',
+        'description' => 'Get the forecast report grades table for a course',
         'type' => 'read',
-        'capabilities' => 'gradereport/user:view',
+        'capabilities' => 'gradereport/forecast:view',
         'services' => array(MOODLE_OFFICIAL_MOBILE_SERVICE),
     ),
-    'gradereport_user_view_grade_report' => array(
-        'classname' => 'gradereport_user_external',
+    'gradereport_forecast_view_grade_report' => array(
+        'classname' => 'gradereport_forecast_external',
         'methodname' => 'view_grade_report',
-        'classpath' => 'grade/report/user/externallib.php',
+        'classpath' => 'grade/report/forecast/externallib.php',
         'description' => 'Trigger the report view event',
         'type' => 'write',
-        'capabilities' => 'gradereport/user:view',
+        'capabilities' => 'gradereport/forecast:view',
         'services' => array(MOODLE_OFFICIAL_MOBILE_SERVICE),
     )
 );
