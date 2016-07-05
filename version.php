@@ -17,13 +17,11 @@
 /**
  * Version details for the user gradebook report
  *
- * @package    gradereport_user
- * @copyright  1999 onwards Martin Dougiamas (http://dougiamas.com)
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    gradereport_forecast
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2016052300;        // The current plugin version (Date: YYYYMMDDXX)
-$plugin->requires  = 2016051900;        // Requires this Moodle version
-$plugin->component = 'gradereport_user'; // Full name of the plugin (used for diagnostics)
+$plugin->version   = 2016070100;
+$plugin->requires  = 2016051900;
+$plugin->component = 'gradereport_forecast';
