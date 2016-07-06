@@ -102,8 +102,18 @@ if (has_capability('moodle/grade:viewall', $context)) { //Teachers will see all 
     $showonlyactiveenrol = get_user_preferences('grade_report_showonlyactiveenrol', $defaultgradeshowactiveenrol);
     $showonlyactiveenrol = $showonlyactiveenrol || !has_capability('moodle/course:viewsuspendedusers', $context);
 
-    // If a user is selected, show the report
-    if ( ! empty($userid)) {
+    if (empty($userid)) {
+        // @TODO: show a "blank" grade tree that is not populated with any real grades
+        
+        // Add tabs
+        print_grade_page_head($courseid, 'report', 'forecast');
+        groups_print_course_menu($course, $gpr->get_return_url('index.php?id='.$courseid, array('userid'=>0)));
+
+        if ($user_selector) {
+            $renderer = $PAGE->get_renderer('gradereport_forecast');
+            echo $renderer->graded_users_selector('forecast', $course, $userid, $currentgroup, false);
+        }
+    } else {
         $report = new grade_report_forecast($courseid, $gpr, $context, $userid);
 
         $studentnamelink = html_writer::link(new moodle_url('/user/view.php', array('id' => $report->user->id, 'course' => $courseid)), fullname($report->user));
@@ -114,7 +124,7 @@ if (has_capability('moodle/grade:viewall', $context)) { //Teachers will see all 
 
         if ($user_selector) {
             $renderer = $PAGE->get_renderer('gradereport_forecast');
-            $showallusersoptions = true;
+            $showallusersoptions = false;
             echo $renderer->graded_users_selector('forecast', $course, $userid, $currentgroup, $showallusersoptions);
         }
 
@@ -125,11 +135,6 @@ if (has_capability('moodle/grade:viewall', $context)) { //Teachers will see all 
                 echo '<br />'.$report->print_table(true);
             }
         }
-    } else {
-        // @TODO: show a "blank" grade tree that is not populated with any real grades
-        // Add tabs
-        print_grade_page_head($courseid, 'report', 'forecast');
-        groups_print_course_menu($course, $gpr->get_return_url('index.php?id='.$courseid, array('userid'=>0)));
     }
 } else { //Students will see just their own report
 
