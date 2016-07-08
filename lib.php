@@ -77,22 +77,6 @@ class grade_report_forecast extends grade_report {
     public $gseq;
 
     /**
-     * show grade percentages
-     */
-    public $showpercentage;
-
-    /**
-     * Show range
-     */
-    public $showrange = true;
-
-    /**
-     * Show grades in the report, default true
-     * @var bool
-     */
-    public $showgrade = true;
-
-    /**
      * Decimal points to use for values in the report, default 2
      * @var int
      */
@@ -105,22 +89,10 @@ class grade_report_forecast extends grade_report {
     public $rangedecimals = 0;
 
     /**
-     * Show grade weighting in the report, default true.
-     * @var bool
-     */
-    public $showweight = true;
-
-    /**
      * Show letter grades in the report, default false
      * @var bool
      */
     public $showlettergrade = false;
-
-    /**
-     * Show average grades in the report, default false.
-     * @var false
-     */
-    public $showaverage = false;
 
     public $maxdepth;
     public $evenodd;
@@ -178,18 +150,10 @@ class grade_report_forecast extends grade_report {
         global $DB, $CFG;
         parent::__construct($courseid, $gpr, $context);
 
-        $this->showpercentage  = grade_get_setting($this->courseid, 'report_forecast_showpercentage', $CFG->grade_report_forecast_showpercentage);
         $this->showhiddenitems = grade_get_setting($this->courseid, 'report_forecast_showhiddenitems', $CFG->grade_report_forecast_showhiddenitems);
         $this->showtotalsifcontainhidden = array($this->courseid => grade_get_setting($this->courseid, 'report_forecast_showtotalsifcontainhidden', $CFG->grade_report_forecast_showtotalsifcontainhidden));
 
-        $this->showgrade       = grade_get_setting($this->courseid, 'report_forecast_showgrade',       !empty($CFG->grade_report_forecast_showgrade));
-        $this->showrange       = grade_get_setting($this->courseid, 'report_forecast_showrange',       !empty($CFG->grade_report_forecast_showrange));
-
-        $this->showweight = grade_get_setting($this->courseid, 'report_forecast_showweight',
-            !empty($CFG->grade_report_forecast_showweight));
-
         $this->showlettergrade = grade_get_setting($this->courseid, 'report_forecast_showlettergrade', !empty($CFG->grade_report_forecast_showlettergrade));
-        $this->showaverage     = grade_get_setting($this->courseid, 'report_forecast_showaverage',     !empty($CFG->grade_report_forecast_showaverage));
 
         $this->viewasuser = $viewasuser;
 
@@ -241,9 +205,6 @@ class grade_report_forecast extends grade_report {
 
         // no groups on this report - rank is from all course users
         $this->setup_table();
-
-        //optionally calculate grade item averages
-        $this->calculate_averages();
     }
 
     /**
@@ -293,35 +254,8 @@ class grade_report_forecast extends grade_report {
         $this->tablecolumns = array('itemname');
         $this->tableheaders = array($this->get_lang_string('gradeitem', 'grades'));
 
-        if ($this->showweight) {
-            $this->tablecolumns[] = 'weight';
-            $this->tableheaders[] = $this->get_lang_string('weightuc', 'grades');
-        }
-
-        if ($this->showgrade) {
-            $this->tablecolumns[] = 'grade';
-            $this->tableheaders[] = $this->get_lang_string('grade', 'grades');
-        }
-
-        if ($this->showrange) {
-            $this->tablecolumns[] = 'range';
-            $this->tableheaders[] = $this->get_lang_string('range', 'grades');
-        }
-
-        if ($this->showpercentage) {
-            $this->tablecolumns[] = 'percentage';
-            $this->tableheaders[] = $this->get_lang_string('percentage', 'grades');
-        }
-
-        if ($this->showlettergrade) {
-            $this->tablecolumns[] = 'lettergrade';
-            $this->tableheaders[] = $this->get_lang_string('lettergrade', 'grades');
-        }
-
-        if ($this->showaverage) {
-            $this->tablecolumns[] = 'average';
-            $this->tableheaders[] = $this->get_lang_string('average', 'grades');
-        }
+        $this->tablecolumns[] = 'grade';
+        $this->tableheaders[] = $this->get_lang_string('grade', 'grades');
     }
 
     function fill_table() {
@@ -460,103 +394,33 @@ class grade_report_forecast extends grade_report {
                 $data['itemname']['id'] = $header_row;
 
                 $class .= " itemcenter ";
-                if ($this->showweight) {
-                    $data['weight']['class'] = $class;
-                    $data['weight']['content'] = '-';
-                    $data['weight']['headers'] = "$header_cat $header_row weight";
-                    // has a weight assigned, might be extra credit
 
-                    // This obliterates the weight because it provides a more informative description.
-                    if (is_numeric($hint['weight'])) {
-                        $data['weight']['content'] = format_float($hint['weight'] * 100.0, 2) . ' %';
+                // get grade and value
+                $gradeValue = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true);
+                $gradeLetter = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true, GRADE_DISPLAY_TYPE_LETTER);
+
+                // Grade and Letter display
+                if ($grade_grade->grade_item->needsupdate) {
+                    $data['grade']['class'] = $class.' gradingerror';
+                    $data['grade']['content'] = get_string('error');
+                } else if (!empty($CFG->grade_hiddenasdate) and $grade_grade->get_datesubmitted() and !$this->canviewhidden and $grade_grade->is_hidden()
+                       and !$grade_grade->grade_item->is_category_item() and !$grade_grade->grade_item->is_course_item()) {
+                    // the problem here is that we do not have the time when grade value was modified, 'timemodified' is general modification date for grade_grades records
+                    $class .= ' datesubmitted';
+                    $data['grade']['class'] = $class;
+                    $data['grade']['content'] = get_string('submittedon', 'grades', userdate($grade_grade->get_datesubmitted(), get_string('strftimedatetimeshort')));
+
+                } else if ($grade_grade->is_hidden()) {
+                    $data['grade']['class'] = $class.' dimmed_text';
+                    $data['grade']['content'] = '-';
+                    if ($this->canviewhidden) {
+                        $data['grade']['content'] = $this->formatGradeDisplay($gradeValue, $gradeLetter);
                     }
-                    if ($hint['status'] != 'used' && $hint['status'] != 'unknown') {
-                        $data['weight']['content'] .= '<br>' . get_string('aggregationhint' . $hint['status'], 'grades');
-                    }
+                } else {
+                    $data['grade']['class'] = $class;
+                    $data['grade']['content'] = $this->formatGradeDisplay($gradeValue, $gradeLetter);
                 }
-
-                if ($this->showgrade) {
-                    if ($grade_grade->grade_item->needsupdate) {
-                        $data['grade']['class'] = $class.' gradingerror';
-                        $data['grade']['content'] = get_string('error');
-                    } else if (!empty($CFG->grade_hiddenasdate) and $grade_grade->get_datesubmitted() and !$this->canviewhidden and $grade_grade->is_hidden()
-                           and !$grade_grade->grade_item->is_category_item() and !$grade_grade->grade_item->is_course_item()) {
-                        // the problem here is that we do not have the time when grade value was modified, 'timemodified' is general modification date for grade_grades records
-                        $class .= ' datesubmitted';
-                        $data['grade']['class'] = $class;
-                        $data['grade']['content'] = get_string('submittedon', 'grades', userdate($grade_grade->get_datesubmitted(), get_string('strftimedatetimeshort')));
-
-                    } else if ($grade_grade->is_hidden()) {
-                        $data['grade']['class'] = $class.' dimmed_text';
-                        $data['grade']['content'] = '-';
-                        if ($this->canviewhidden) {
-                            $data['grade']['content'] = grade_format_gradevalue($gradeval,
-                                                                                $grade_grade->grade_item,
-                                                                                true);
-                        }
-                    } else {
-                        $data['grade']['class'] = $class;
-                        $data['grade']['content'] = grade_format_gradevalue($gradeval,
-                                                                            $grade_grade->grade_item,
-                                                                            true);
-                    }
-                    $data['grade']['headers'] = "$header_cat $header_row grade";
-                }
-
-                // Range
-                if ($this->showrange) {
-                    $data['range']['class'] = $class;
-                    $data['range']['content'] = $grade_grade->grade_item->get_formatted_range(GRADE_DISPLAY_TYPE_REAL, $this->rangedecimals);
-                    $data['range']['headers'] = "$header_cat $header_row range";
-                }
-
-                // Percentage
-                if ($this->showpercentage) {
-                    if ($grade_grade->grade_item->needsupdate) {
-                        $data['percentage']['class'] = $class.' gradingerror';
-                        $data['percentage']['content'] = get_string('error');
-                    } else if ($grade_grade->is_hidden()) {
-                        $data['percentage']['class'] = $class.' dimmed_text';
-                        $data['percentage']['content'] = '-';
-                        if ($this->canviewhidden) {
-                            $data['percentage']['content'] = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true, GRADE_DISPLAY_TYPE_PERCENTAGE);
-                        }
-                    } else {
-                        $data['percentage']['class'] = $class;
-                        $data['percentage']['content'] = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true, GRADE_DISPLAY_TYPE_PERCENTAGE);
-                    }
-                    $data['percentage']['headers'] = "$header_cat $header_row percentage";
-                }
-
-                // Lettergrade
-                if ($this->showlettergrade) {
-                    if ($grade_grade->grade_item->needsupdate) {
-                        $data['lettergrade']['class'] = $class.' gradingerror';
-                        $data['lettergrade']['content'] = get_string('error');
-                    } else if ($grade_grade->is_hidden()) {
-                        $data['lettergrade']['class'] = $class.' dimmed_text';
-                        if (!$this->canviewhidden) {
-                            $data['lettergrade']['content'] = '-';
-                        } else {
-                            $data['lettergrade']['content'] = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true, GRADE_DISPLAY_TYPE_LETTER);
-                        }
-                    } else {
-                        $data['lettergrade']['class'] = $class;
-                        $data['lettergrade']['content'] = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true, GRADE_DISPLAY_TYPE_LETTER);
-                    }
-                    $data['lettergrade']['headers'] = "$header_cat $header_row lettergrade";
-                }
-
-                // Average
-                if ($this->showaverage) {
-                    $data['average']['class'] = $class;
-                    if (!empty($this->gtree->items[$eid]->avg)) {
-                        $data['average']['content'] = $this->gtree->items[$eid]->avg;
-                    } else {
-                        $data['average']['content'] = '-';
-                    }
-                    $data['average']['headers'] = "$header_cat $header_row average";
-                }
+                $data['grade']['headers'] = "$header_cat $header_row grade";
             }
         }
 
@@ -629,7 +493,19 @@ class grade_report_forecast extends grade_report {
                 $name = $this->tablecolumns[$j];
                 $class = (isset($this->tabledata[$i][$name]['class'])) ? $this->tabledata[$i][$name]['class'] : '';
                 $colspan = (isset($this->tabledata[$i][$name]['colspan'])) ? "colspan='".$this->tabledata[$i][$name]['colspan']."'" : '';
+                
                 $content = (isset($this->tabledata[$i][$name]['content'])) ? $this->tabledata[$i][$name]['content'] : null;
+                
+                // if ( ! isset($this->tabledata[$i][$name]['content'])) {
+                    // $content = null;
+                // } else {
+                    // if ($this->tabledata[$i][$name]['content'] == '-') {
+                        // $content = 'the thing';
+                    // } else {
+                        // $content = $this->tabledata[$i][$name]['content'];
+                    // }
+                // }
+
                 $celltype = (isset($this->tabledata[$i][$name]['celltype'])) ? $this->tabledata[$i][$name]['celltype'] : 'td';
                 $id = (isset($this->tabledata[$i][$name]['id'])) ? "id='{$this->tabledata[$i][$name]['id']}'" : '';
                 $headers = (isset($this->tabledata[$i][$name]['headers'])) ? "headers='{$this->tabledata[$i][$name]['headers']}'" : '';
@@ -650,6 +526,23 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
+     * Formats a given grade value and letter for display in grade column of report
+     * 
+     * @param  string $gradeValue
+     * @param  string $gradeLetter
+     * @return string
+     */
+    private function formatGradeDisplay($gradeValue, $gradeLetter) {
+        $output = $gradeValue;
+        
+        if ($gradeValue !== '-' and $this->showlettergrade) {
+            $output .= ' (' . $gradeLetter . ')';
+        }
+
+        return $output;
+    }
+
+    /**
      * Processes the data sent by the form (grades and feedbacks).
      * @var array $data
      * @return bool Success or Failure (array of errors).
@@ -657,160 +550,6 @@ class grade_report_forecast extends grade_report {
     function process_data($data) {
     }
     function process_action($target, $action) {
-    }
-
-    /**
-     * Builds the grade item averages.
-     */
-    function calculate_averages() {
-        global $USER, $DB, $CFG;
-
-        if ($this->showaverage) {
-            // This settings are actually grader report settings (not forecast report)
-            // however we're using them as having two separate but identical settings the
-            // user would have to keep in sync would be annoying.
-            $averagesdisplaytype   = $this->get_pref('averagesdisplaytype');
-            $averagesdecimalpoints = $this->get_pref('averagesdecimalpoints');
-            $meanselection         = $this->get_pref('meanselection');
-            $shownumberofgrades    = $this->get_pref('shownumberofgrades');
-
-            $avghtml = '';
-            $groupsql = $this->groupsql;
-            $groupwheresql = $this->groupwheresql;
-            $totalcount = $this->get_numusers(false);
-
-            // We want to query both the current context and parent contexts.
-            list($relatedctxsql, $relatedctxparams) = $DB->get_in_or_equal($this->context->get_parent_context_ids(true), SQL_PARAMS_NAMED, 'relatedctx');
-
-            // Limit to users with a gradeable role ie students.
-            list($gradebookrolessql, $gradebookrolesparams) = $DB->get_in_or_equal(explode(',', $this->gradebookroles), SQL_PARAMS_NAMED, 'grbr0');
-
-            // Limit to users with an active enrolment.
-            $coursecontext = $this->context->get_course_context(true);
-            $defaultgradeshowactiveenrol = !empty($CFG->grade_report_showonlyactiveenrol);
-            $showonlyactiveenrol = get_user_preferences('grade_report_showonlyactiveenrol', $defaultgradeshowactiveenrol);
-            $showonlyactiveenrol = $showonlyactiveenrol || !has_capability('moodle/course:viewsuspendedusers', $coursecontext);
-            list($enrolledsql, $enrolledparams) = get_enrolled_sql($this->context, '', 0, $showonlyactiveenrol);
-
-            $params = array_merge($this->groupwheresql_params, $gradebookrolesparams, $enrolledparams, $relatedctxparams);
-            $params['courseid'] = $this->courseid;
-
-            // find sums of all grade items in course
-            $sql = "SELECT gg.itemid, SUM(gg.finalgrade) AS sum
-                      FROM {grade_items} gi
-                      JOIN {grade_grades} gg ON gg.itemid = gi.id
-                      JOIN {user} u ON u.id = gg.userid
-                      JOIN ($enrolledsql) je ON je.id = gg.userid
-                      JOIN (
-                                   SELECT DISTINCT ra.userid
-                                     FROM {role_assignments} ra
-                                    WHERE ra.roleid $gradebookrolessql
-                                      AND ra.contextid $relatedctxsql
-                           ) rainner ON rainner.userid = u.id
-                      $groupsql
-                     WHERE gi.courseid = :courseid
-                       AND u.deleted = 0
-                       AND gg.finalgrade IS NOT NULL
-                       AND gg.hidden = 0
-                       $groupwheresql
-                  GROUP BY gg.itemid";
-
-            $sum_array = array();
-            $sums = $DB->get_recordset_sql($sql, $params);
-            foreach ($sums as $itemid => $csum) {
-                $sum_array[$itemid] = $csum->sum;
-            }
-            $sums->close();
-
-            $columncount=0;
-
-            // Empty grades must be evaluated as grademin, NOT always 0
-            // This query returns a count of ungraded grades (NULL finalgrade OR no matching record in grade_grades table)
-            // No join condition when joining grade_items and user to get a grade item row for every user
-            // Then left join with grade_grades and look for rows with null final grade (which includes grade items with no grade_grade)
-            $sql = "SELECT gi.id, COUNT(u.id) AS count
-                      FROM {grade_items} gi
-                      JOIN {user} u ON u.deleted = 0
-                      JOIN ($enrolledsql) je ON je.id = u.id
-                      JOIN (
-                               SELECT DISTINCT ra.userid
-                                 FROM {role_assignments} ra
-                                WHERE ra.roleid $gradebookrolessql
-                                  AND ra.contextid $relatedctxsql
-                           ) rainner ON rainner.userid = u.id
-                      LEFT JOIN {grade_grades} gg
-                             ON (gg.itemid = gi.id AND gg.userid = u.id AND gg.finalgrade IS NOT NULL AND gg.hidden = 0)
-                      $groupsql
-                     WHERE gi.courseid = :courseid
-                           AND gg.finalgrade IS NULL
-                           $groupwheresql
-                  GROUP BY gi.id";
-
-            $ungraded_counts = $DB->get_records_sql($sql, $params);
-
-            foreach ($this->gtree->items as $itemid=>$unused) {
-                if (!empty($this->gtree->items[$itemid]->avg)) {
-                    continue;
-                }
-                $item = $this->gtree->items[$itemid];
-
-                if ($item->needsupdate) {
-                    $avghtml .= '<td class="cell c' . $columncount++.'"><span class="gradingerror">'.get_string('error').'</span></td>';
-                    continue;
-                }
-
-                if (empty($sum_array[$item->id])) {
-                    $sum_array[$item->id] = 0;
-                }
-
-                if (empty($ungraded_counts[$itemid])) {
-                    $ungraded_count = 0;
-                } else {
-                    $ungraded_count = $ungraded_counts[$itemid]->count;
-                }
-
-                //do they want the averages to include all grade items
-                if ($meanselection == GRADE_REPORT_MEAN_GRADED) {
-                    $mean_count = $totalcount - $ungraded_count;
-                } else { // Bump up the sum by the number of ungraded items * grademin
-                    $sum_array[$item->id] += ($ungraded_count * $item->grademin);
-                    $mean_count = $totalcount;
-                }
-
-                // Determine which display type to use for this average
-                if (!empty($USER->gradeediting) && $USER->gradeediting[$this->courseid]) {
-                    $displaytype = GRADE_DISPLAY_TYPE_REAL;
-
-                } else if ($averagesdisplaytype == GRADE_REPORT_PREFERENCE_INHERIT) { // no ==0 here, please resave the report and user preferences
-                    $displaytype = $item->get_displaytype();
-
-                } else {
-                    $displaytype = $averagesdisplaytype;
-                }
-
-                // Override grade_item setting if a display preference (not inherit) was set for the averages
-                if ($averagesdecimalpoints == GRADE_REPORT_PREFERENCE_INHERIT) {
-                    $decimalpoints = $item->get_decimals();
-                } else {
-                    $decimalpoints = $averagesdecimalpoints;
-                }
-
-                if (empty($sum_array[$item->id]) || $mean_count == 0) {
-                    $this->gtree->items[$itemid]->avg = '-';
-                } else {
-                    $sum = $sum_array[$item->id];
-                    $avgradeval = $sum/$mean_count;
-                    $gradehtml = grade_format_gradevalue($avgradeval, $item, true, $displaytype, $decimalpoints);
-
-                    $numberofgrades = '';
-                    if ($shownumberofgrades) {
-                        $numberofgrades = " ($mean_count)";
-                    }
-
-                    $this->gtree->items[$itemid]->avg = $gradehtml.$numberofgrades;
-                }
-            }
-        }
     }
 
     /**
@@ -830,6 +569,8 @@ class grade_report_forecast extends grade_report {
     }
 }
 
+// necessary for grade report...
+
 function grade_report_forecast_settings_definition(&$mform) {
     global $CFG;
 
@@ -837,53 +578,11 @@ function grade_report_forecast_settings_definition(&$mform) {
                       0 => get_string('hide'),
                       1 => get_string('show'));
 
-    if (empty($CFG->grade_report_forecast_showpercentage)) {
-        $options[-1] = get_string('defaultprev', 'grades', $options[0]);
-    } else {
-        $options[-1] = get_string('defaultprev', 'grades', $options[1]);
-    }
-
-    $mform->addElement('select', 'report_forecast_showpercentage', get_string('showpercentage', 'grades'), $options);
-    $mform->addHelpButton('report_forecast_showpercentage', 'showpercentage', 'grades');
-
-    if (empty($CFG->grade_report_forecast_showgrade)) {
-        $options[-1] = get_string('defaultprev', 'grades', $options[0]);
-    } else {
-        $options[-1] = get_string('defaultprev', 'grades', $options[1]);
-    }
-
-    $mform->addElement('select', 'report_forecast_showgrade', get_string('showgrade', 'grades'), $options);
-
-    if (empty($CFG->grade_report_forecast_showweight)) {
-        $options[-1] = get_string('defaultprev', 'grades', $options[0]);
-    } else {
-        $options[-1] = get_string('defaultprev', 'grades', $options[1]);
-    }
-
-    $mform->addElement('select', 'report_forecast_showweight', get_string('showweight', 'grades'), $options);
-
-    if (empty($CFG->grade_report_forecast_showaverage)) {
-        $options[-1] = get_string('defaultprev', 'grades', $options[0]);
-    } else {
-        $options[-1] = get_string('defaultprev', 'grades', $options[1]);
-    }
-
-    $mform->addElement('select', 'report_forecast_showaverage', get_string('showaverage', 'grades'), $options);
-    $mform->addHelpButton('report_forecast_showaverage', 'showaverage', 'grades');
-
     if (empty($CFG->grade_report_forecast_showlettergrade)) {
         $options[-1] = get_string('defaultprev', 'grades', $options[0]);
     } else {
         $options[-1] = get_string('defaultprev', 'grades', $options[1]);
     }
-
-    if (empty($CFG->grade_report_forecast_showrange)) {
-        $options[-1] = get_string('defaultprev', 'grades', $options[0]);
-    } else {
-        $options[-1] = get_string('defaultprev', 'grades', $options[1]);
-    }
-
-    $mform->addElement('select', 'report_forecast_showrange', get_string('showrange', 'grades'), $options);
 
     $options = array(0=>0, 1=>1, 2=>2, 3=>3, 4=>4, 5=>5);
     if (! empty($CFG->grade_report_forecast_rangedecimals)) {

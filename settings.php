@@ -24,15 +24,7 @@ defined('MOODLE_INTERNAL') || die;
 
 if ($ADMIN->fulltree) {
 
-    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_showpercentage', get_string('showpercentage', 'grades'), get_string('showpercentage_help', 'grades'), 1));
-    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_showgrade', get_string('showgrade', 'grades'), get_string('showgrade_help', 'grades'), 1));
-    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_showrange', get_string('showrange', 'grades'), get_string('showrange_help', 'grades'), 1));
-
-    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_showweight',
-        get_string('showweight', 'grades'), get_string('showweight_help', 'grades'), 0));
-
-    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_showaverage', get_string('showaverage', 'grades'), get_string('showaverage_help', 'grades'), 0));
-    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_showlettergrade', get_string('showlettergrade', 'grades'), get_string('showlettergrade_help', 'grades'), 1));
+    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_showlettergrade', get_string('showlettergrade', 'grades'), get_string('showlettergrade', 'grades'), 1));
     $settings->add(new admin_setting_configselect('grade_report_forecast_rangedecimals', get_string('rangedecimals', 'grades'),
             get_string('rangedecimals_help', 'grades'), 0,array(0=>0, 1=>1, 2=>2, 3=>3, 4=>4, 5=>5)));
 
