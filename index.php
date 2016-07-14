@@ -15,15 +15,20 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * The gradebook forecast report
+ * The gradebook forecast report page
  *
- * @package   gradereport_forecast
+ * @package    gradereport_forecast
+ * @copyright  2016 Louisiana State University, Chad Mazilly, Robert Russo, Dave Elliott
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once '../../../config.php';
 require_once $CFG->libdir.'/gradelib.php';
 require_once $CFG->dirroot.'/grade/lib.php';
 require_once $CFG->dirroot.'/grade/report/forecast/lib.php';
+
+$PAGE->requires->jquery();
+$PAGE->requires->js('/grade/report/forecast/js/forecast.js');
 
 $courseid = required_param('id', PARAM_INT);
 $userid   = optional_param('userid', $USER->id, PARAM_INT);
@@ -105,6 +110,10 @@ if (has_capability('moodle/grade:viewall', $context)) { //Teachers will see all 
     // If a user is selected, show the report
     if ( ! empty($userid)) {
         $report = new grade_report_forecast($courseid, $gpr, $context, $userid);
+
+        // echo '<pre>';
+        // var_dump($report->gtree);
+        // echo '</pre>';
 
         $studentnamelink = html_writer::link(new moodle_url('/user/view.php', array('id' => $report->user->id, 'course' => $courseid)), fullname($report->user));
         print_grade_page_head($courseid, 'report', 'forecast', get_string('pluginname', 'gradereport_forecast') . ' - ' . $studentnamelink,

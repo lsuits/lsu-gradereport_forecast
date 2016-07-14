@@ -18,6 +18,8 @@
  * Forecast grade report external functions and service definitions.
  *
  * @package    gradereport_forecast
+ * @copyright  2016 Louisiana State University, Chad Mazilly, Robert Russo, Dave Elliott
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 $functions = array(

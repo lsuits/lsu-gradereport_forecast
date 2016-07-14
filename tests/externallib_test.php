@@ -17,9 +17,9 @@
 /**
  * User grade report functions unit tests
  *
- * @package    gradereport_user
+ * @package    gradereport_forecast
+ * @copyright  2016 Louisiana State University, Chad Mazilly, Robert Russo, Dave Elliott
  * @category   external
- * @copyright  2015 Juan Leyva <juan@moodle.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -28,17 +28,17 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
-require_once($CFG->dirroot . '/grade/report/user/externallib.php');
+require_once($CFG->dirroot . '/grade/report/forecast/externallib.php');
 
 /**
  * User grade report functions unit tests
  *
- * @package    gradereport_user
+ * @package    gradereport_forecast
+ * @copyright  2016 Louisiana State University, Chad Mazilly, Robert Russo, Dave Elliott
  * @category   external
- * @copyright  2015 Juan Leyva <juan@moodle.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class gradereport_user_externallib_testcase extends externallib_advanced_testcase {
+class gradereport_forecast_externallib_testcase extends externallib_advanced_testcase {
 
     /**
      * Loads some data to be used by the different tests
@@ -89,8 +89,8 @@ class gradereport_user_externallib_testcase extends externallib_advanced_testcas
         // A teacher must see all student grades.
         $this->setUser($teacher);
 
-        $studentgrades = gradereport_user_external::get_grades_table($course->id);
-        $studentgrades = external_api::clean_returnvalue(gradereport_user_external::get_grades_table_returns(), $studentgrades);
+        $studentgrades = gradereport_forecast_external::get_grades_table($course->id);
+        $studentgrades = external_api::clean_returnvalue(gradereport_forecast_external::get_grades_table_returns(), $studentgrades);
 
         // No warnings returned.
         $this->assertTrue(count($studentgrades['warnings']) == 0);
@@ -125,8 +125,8 @@ class gradereport_user_externallib_testcase extends externallib_advanced_testcas
 
         // A user can see his own grades.
         $this->setUser($student1);
-        $studentgrade = gradereport_user_external::get_grades_table($course->id, $student1->id);
-        $studentgrade = external_api::clean_returnvalue(gradereport_user_external::get_grades_table_returns(), $studentgrade);
+        $studentgrade = gradereport_forecast_external::get_grades_table($course->id, $student1->id);
+        $studentgrade = external_api::clean_returnvalue(gradereport_forecast_external::get_grades_table_returns(), $studentgrade);
 
         // No warnings returned.
         $this->assertTrue(count($studentgrade['warnings']) == 0);
@@ -153,7 +153,7 @@ class gradereport_user_externallib_testcase extends externallib_advanced_testcas
         $this->setUser($student2);
 
         try {
-            $studentgrade = gradereport_user_external::get_grades_table($course->id, $student1->id);
+            $studentgrade = gradereport_forecast_external::get_grades_table($course->id, $student1->id);
             $this->fail('Exception expected due to not perissions to view other user grades.');
         } catch (moodle_exception $e) {
             $this->assertEquals('nopermissiontoviewgrades', $e->errorcode);
@@ -177,32 +177,32 @@ class gradereport_user_externallib_testcase extends externallib_advanced_testcas
         $sink = $this->redirectEvents();
 
         $this->setUser($student1);
-        $result = gradereport_user_external::view_grade_report($course->id);
-        $result = external_api::clean_returnvalue(gradereport_user_external::view_grade_report_returns(), $result);
+        $result = gradereport_forecast_external::view_grade_report($course->id);
+        $result = external_api::clean_returnvalue(gradereport_forecast_external::view_grade_report_returns(), $result);
         $events = $sink->get_events();
         $this->assertCount(1, $events);
         $event = reset($events);
 
         // Check the event details are correct.
-        $this->assertInstanceOf('\gradereport_user\event\grade_report_viewed', $event);
+        $this->assertInstanceOf('\gradereport_forecast\event\grade_report_viewed', $event);
         $this->assertEquals(context_course::instance($course->id), $event->get_context());
         $this->assertEquals($USER->id, $event->get_data()['relateduserid']);
 
         $this->setUser($teacher);
-        $result = gradereport_user_external::view_grade_report($course->id, $student1->id);
-        $result = external_api::clean_returnvalue(gradereport_user_external::view_grade_report_returns(), $result);
+        $result = gradereport_forecast_external::view_grade_report($course->id, $student1->id);
+        $result = external_api::clean_returnvalue(gradereport_forecast_external::view_grade_report_returns(), $result);
         $events = $sink->get_events();
         $event = reset($events);
         $sink->close();
 
         // Check the event details are correct.
-        $this->assertInstanceOf('\gradereport_user\event\grade_report_viewed', $event);
+        $this->assertInstanceOf('\gradereport_forecast\event\grade_report_viewed', $event);
         $this->assertEquals(context_course::instance($course->id), $event->get_context());
         $this->assertEquals($student1->id, $event->get_data()['relateduserid']);
 
         $this->setUser($student2);
         try {
-            $studentgrade = gradereport_user_external::view_grade_report($course->id, $student1->id);
+            $studentgrade = gradereport_forecast_external::view_grade_report($course->id, $student1->id);
             $this->fail('Exception expected due to not permissions to view other user grades.');
         } catch (moodle_exception $e) {
             $this->assertEquals('nopermissiontoviewgrades', $e->errorcode);

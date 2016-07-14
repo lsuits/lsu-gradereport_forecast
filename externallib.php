@@ -17,8 +17,8 @@
 /**
  * External grade report user API
  *
- * @package    gradereport_user
- * @copyright  2015 Juan Leyva <juan@moodle.com>
+ * @package    gradereport_forecast
+ * @copyright  2016 Louisiana State University, Chad Mazilly, Robert Russo, Dave Elliott
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -30,12 +30,12 @@ require_once("$CFG->libdir/externallib.php");
 /**
  * External grade report API implementation
  *
- * @package    gradereport_user
- * @copyright  2015 Juan Leyva <juan@moodle.com>
+ * @package    gradereport_forecast
+ * @copyright  2016 Louisiana State University, Chad Mazilly, Robert Russo, Dave Elliott
  * @category   external
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class gradereport_user_external extends external_api {
+class gradereport_forecast_external extends external_api {
 
     /**
      * Describes the parameters for get_grades_table.
@@ -84,7 +84,7 @@ class gradereport_user_external extends external_api {
         self::validate_context($context);
 
         // Specific capabilities.
-        require_capability('gradereport/user:view', $context);
+        require_capability('gradereport/forecast:view', $context);
 
         $user = null;
 
@@ -113,7 +113,7 @@ class gradereport_user_external extends external_api {
         require_once($CFG->dirroot . '/group/lib.php');
         require_once($CFG->libdir  . '/gradelib.php');
         require_once($CFG->dirroot . '/grade/lib.php');
-        require_once($CFG->dirroot . '/grade/report/user/lib.php');
+        require_once($CFG->dirroot . '/grade/report/forecast/lib.php');
 
         // Force regrade to update items marked as 'needupdate'.
         grade_regrade_final_grades($course->id);
@@ -130,7 +130,7 @@ class gradereport_user_external extends external_api {
 
         // Just one user.
         if ($user) {
-            $report = new grade_report_user($courseid, $gpr, $context, $userid);
+            $report = new grade_report_forecast($courseid, $gpr, $context, $userid);
             $report->fill_table();
 
             $tables[] = array(
@@ -152,7 +152,7 @@ class gradereport_user_external extends external_api {
 
             while ($userdata = $gui->next_user()) {
                 $currentuser = $userdata->user;
-                $report = new grade_report_user($courseid, $gpr, $context, $currentuser->id);
+                $report = new grade_report_forecast($courseid, $gpr, $context, $currentuser->id);
                 $report->fill_table();
 
                 $tables[] = array(
@@ -285,7 +285,7 @@ class gradereport_user_external extends external_api {
     public static function view_grade_report($courseid, $userid = 0) {
         global $CFG, $USER;
         require_once($CFG->dirroot . "/grade/lib.php");
-        require_once($CFG->dirroot . "/grade/report/user/lib.php");
+        require_once($CFG->dirroot . "/grade/report/forecast/lib.php");
 
         $params = self::validate_parameters(self::view_grade_report_parameters(),
                                             array(
@@ -323,7 +323,7 @@ class gradereport_user_external extends external_api {
         }
 
         // Create a report instance. We don't need the gpr second parameter.
-        $report = new grade_report_user($course->id, null, $context, $userid);
+        $report = new grade_report_forecast($course->id, null, $context, $userid);
         $report->viewed();
 
         $result = array();

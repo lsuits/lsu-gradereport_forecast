@@ -15,26 +15,26 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Tests for gradereport_user library functions.
+ * Tests for gradereport_forecast library functions.
  *
- * @package    gradereport_user
- * @copyright  2015 onwards Ankit agarwal <ankit.agrr@gmail.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later.
+ * @package    gradereport_forecast
+ * @copyright  2016 Louisiana State University, Chad Mazilly, Robert Russo, Dave Elliott
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
-require_once($CFG->dirroot . '/grade/report/user/lib.php');
+require_once($CFG->dirroot . '/grade/report/forecast/lib.php');
 
 /**
- * Class gradereport_user_lib_testcase.
+ * Class gradereport_forecast_lib_testcase.
  *
- * @package    gradereport_user
+ * @package    gradereport_forecast
  * @copyright  2015 onwards Ankit agarwal <ankit.agrr@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later.
  */
-class gradereport_user_lib_testcase extends advanced_testcase {
+class gradereport_forecast_lib_testcase extends advanced_testcase {
 
     /**
      * @var stdClass The user.
@@ -59,13 +59,13 @@ class gradereport_user_lib_testcase extends advanced_testcase {
     }
 
     /**
-     * Tests the gradereport_user_myprofile_navigation() function.
+     * Tests the gradereport_forecast_myprofile_navigation() function.
      */
-    public function test_gradereport_user_myprofile_navigation() {
+    public function test_gradereport_forecast_myprofile_navigation() {
         $this->setAdminUser();
         $iscurrentuser = false;
 
-        gradereport_user_myprofile_navigation($this->tree, $this->user, $iscurrentuser, $this->course);
+        gradereport_forecast_myprofile_navigation($this->tree, $this->user, $iscurrentuser, $this->course);
         $reflector = new ReflectionObject($this->tree);
         $nodes = $reflector->getProperty('nodes');
         $nodes->setAccessible(true);
@@ -73,14 +73,14 @@ class gradereport_user_lib_testcase extends advanced_testcase {
     }
 
     /**
-     * Tests the gradereport_user_myprofile_navigation() function for a user
+     * Tests the gradereport_forecast_myprofile_navigation() function for a user
      * without permission to view the grade node.
      */
-    public function test_gradereport_user_myprofile_navigation_without_permission() {
+    public function test_gradereport_forecast_myprofile_navigation_without_permission() {
         $this->setUser($this->user);
         $iscurrentuser = true;
 
-        gradereport_user_myprofile_navigation($this->tree, $this->user, $iscurrentuser, $this->course);
+        gradereport_forecast_myprofile_navigation($this->tree, $this->user, $iscurrentuser, $this->course);
         $reflector = new ReflectionObject($this->tree);
         $nodes = $reflector->getProperty('nodes');
         $nodes->setAccessible(true);

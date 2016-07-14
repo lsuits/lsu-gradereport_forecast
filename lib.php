@@ -17,7 +17,9 @@
 /**
  * Definition of the grade_forecast_report class is defined
  *
- * @package gradereport_forecast
+ * @package    gradereport_forecast
+ * @copyright  2016 Louisiana State University, Chad Mazilly, Robert Russo, Dave Elliott
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once($CFG->dirroot . '/grade/report/lib.php');
@@ -110,6 +112,10 @@ class grade_report_forecast extends grade_report {
     public $baseurl;
     public $pbarurl;
 
+    public $courseid;
+
+    public $inputData;
+
     /**
      * The modinfo object to be used.
      *
@@ -145,8 +151,9 @@ class grade_report_forecast extends grade_report {
      * @param string $context
      * @param int $userid The id of the user
      * @param bool $viewasuser Set this to true when the current user is a mentor/parent of the targetted user.
+     * @param array $inputData
      */
-    public function __construct($courseid, $gpr, $context, $userid, $viewasuser = null) {
+    public function __construct($courseid, $gpr, $context, $userid, $viewasuser = null, $inputData = []) {
         global $DB, $CFG;
         parent::__construct($courseid, $gpr, $context);
 
@@ -203,6 +210,10 @@ class grade_report_forecast extends grade_report {
         $this->baseurl = $CFG->wwwroot.'/grade/report?id='.$courseid.'&amp;userid='.$userid;
         $this->pbarurl = $this->baseurl;
 
+        $this->courseid = $courseid;
+
+        $this->inputData = $inputData;
+
         // no groups on this report - rank is from all course users
         $this->setup_table();
     }
@@ -244,26 +255,24 @@ class grade_report_forecast extends grade_report {
      * Prepares the headers and attributes of the flexitable.
      */
     public function setup_table() {
-        /*
-         * Table has 1-8 columns
-         *| All columns except for itemname/description are optional
-         */
-
         // setting up table headers
-
-        $this->tablecolumns = array('itemname');
-        $this->tableheaders = array($this->get_lang_string('gradeitem', 'grades'));
-
-        $this->tablecolumns[] = 'grade';
-        $this->tableheaders[] = $this->get_lang_string('grade', 'grades');
+        $this->tablecolumns = [
+            'itemname', 
+            'grade'
+        ];
+        
+        $this->tableheaders = [
+            $this->get_lang_string('gradeitem', 'grades'), 
+            $this->get_lang_string('grade', 'grades')
+        ];
     }
 
     function fill_table() {
-        //print "<pre>";
-        //print_r($this->gtree->top_element);
+        // print "<pre>";
+        // print_r($this->gtree->top_element);
         $this->fill_table_recursive($this->gtree->top_element);
-        //print_r($this->tabledata);
-        //print "</pre>";
+        // print_r($this->tabledata);
+        // print "</pre>";
         return true;
     }
 
@@ -304,11 +313,39 @@ class grade_report_forecast extends grade_report {
             $header_row = "row_{$eid}_{$this->user->id}";
             $header_cat = "cat_{$grade_object->categoryid}_{$this->user->id}";
 
-            if (! $grade_grade = grade_grade::fetch(array('itemid'=>$grade_object->id,'userid'=>$this->user->id))) {
-                $grade_grade = new grade_grade();
-                $grade_grade->userid = $this->user->id;
-                $grade_grade->itemid = $grade_object->id;
+            $grade_grade = grade_grade::fetch(array('itemid'=>$grade_object->id,'userid'=>$this->user->id));
+
+            if ( ! $grade_grade) {
+                $grade_grade = new grade_grade([
+                    'userid' => $this->user->id,
+                    'itemid' => $grade_object->id,
+                    // 'finalgrade' => '8.5'
+                ], false);
+                // $grade_grade->userid = $this->user->id;
+                // $grade_grade->itemid = $grade_object->id;
             }
+
+            // $grade_grade = new grade_grade([
+                // 'itemid' => $grade_object->id,
+                // 'userid' => $this->user->id,
+                // 'finalgrade' => '5.9',
+                // // 'id' => '',
+                // // 'rawgrade' => '',
+                // // 'rawgrademax' => '',
+                // // 'rawgrademin' => '',
+                // // 'rawscaleid' => '',
+                // // 'usermodified' => '',
+                // // 'hidden' => '',
+                // // 'locked', => '',
+                // // 'locktime' => '',
+                // // 'exported' => '',
+                // // 'overridden' => '',
+                // // 'excluded' => '',
+                // // 'timecreated' => '',
+                // // 'timemodified' => '',
+                // // 'aggregationstatus' => '',
+                // // 'aggregationweight' => '',
+            // ]);
 
             $grade_grade->load_grade_item();
 
@@ -320,8 +357,8 @@ class grade_report_forecast extends grade_report {
             $hide = false;
             // If this is a hidden grade item, hide it completely from the user.
             if ($grade_grade->is_hidden() && !$this->canviewhidden && (
-                    $this->showhiddenitems == GRADE_REPORT_USER_HIDE_HIDDEN ||
-                    ($this->showhiddenitems == GRADE_REPORT_USER_HIDE_UNTIL && !$grade_grade->is_hiddenuntil()))) {
+                    $this->showhiddenitems == GRADE_REPORT_FORECAST_HIDE_HIDDEN ||
+                    ($this->showhiddenitems == GRADE_REPORT_FORECAST_HIDE_UNTIL && !$grade_grade->is_hiddenuntil()))) {
                 $hide = true;
             } else if (!empty($grade_object->itemmodule) && !empty($grade_object->iteminstance)) {
                 // The grade object can be marked visible but still be hidden if
@@ -394,10 +431,26 @@ class grade_report_forecast extends grade_report {
                 $data['itemname']['id'] = $header_row;
 
                 $class .= " itemcenter ";
+                $placeholder = '';
+                $inputName = '';
 
                 // get grade and value
                 $gradeValue = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true);
                 $gradeLetter = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true, GRADE_DISPLAY_TYPE_LETTER);
+                
+                // determine what type of grade item this is and apply the proper "fcst" class
+                if ($type == 'item') {
+                    // mark static/dynamic depending on whether there is a grade or not
+                    $class .= ' fcst-' . (($this->valueIsGraded($gradeValue)) ? 'static' : 'dynamic' ) . '-item-' . $eid . ' ';
+                    $class .= ' grade-max-' . $grade_grade->grade_item->grademax;
+                    $class .= ' grade-min-' . $grade_grade->grade_item->grademin;
+                    $placeholder = $grade_grade->grade_item->grademin . ' - ' . $grade_grade->grade_item->grademax;
+                    $inputName = 'input-gradeitem-' . $eid;
+                } elseif ($type == 'categoryitem') {
+                    $class .= ' fcst-cat-' . $eid . ' ';
+                } elseif ($type == 'courseitem') {
+                    $class .= ' fcst-course-' . $eid . ' ';
+                }
 
                 // Grade and Letter display
                 if ($grade_grade->grade_item->needsupdate) {
@@ -415,10 +468,14 @@ class grade_report_forecast extends grade_report {
                     $data['grade']['content'] = '-';
                     if ($this->canviewhidden) {
                         $data['grade']['content'] = $this->formatGradeDisplay($gradeValue, $gradeLetter);
+                        $data['grade']['placeholder'] = $placeholder;
+                        $data['grade']['inputName'] = $inputName;
                     }
                 } else {
                     $data['grade']['class'] = $class;
                     $data['grade']['content'] = $this->formatGradeDisplay($gradeValue, $gradeLetter);
+                    $data['grade']['placeholder'] = $placeholder;
+                    $data['grade']['inputName'] = $inputName;
                 }
                 $data['grade']['headers'] = "$header_cat $header_row grade";
             }
@@ -464,6 +521,9 @@ class grade_report_forecast extends grade_report {
 
         /// Build table structure
         $html = "
+            <form id='forecast-form' action='#'>
+            <input type='hidden' name='courseid' value='" . $this->courseid . "'>
+            <input type='hidden' name='userid' value='" . $this->user->id . "'>
             <table cellspacing='0'
                    cellpadding='0'
                    summary='" . s($this->get_lang_string('tablesummary', 'gradereport_forecast')) . "'
@@ -494,17 +554,25 @@ class grade_report_forecast extends grade_report {
                 $class = (isset($this->tabledata[$i][$name]['class'])) ? $this->tabledata[$i][$name]['class'] : '';
                 $colspan = (isset($this->tabledata[$i][$name]['colspan'])) ? "colspan='".$this->tabledata[$i][$name]['colspan']."'" : '';
                 
-                $content = (isset($this->tabledata[$i][$name]['content'])) ? $this->tabledata[$i][$name]['content'] : null;
-                
-                // if ( ! isset($this->tabledata[$i][$name]['content'])) {
-                    // $content = null;
-                // } else {
-                    // if ($this->tabledata[$i][$name]['content'] == '-') {
-                        // $content = 'the thing';
-                    // } else {
-                        // $content = $this->tabledata[$i][$name]['content'];
-                    // }
-                // }
+                // $content = (isset($this->tabledata[$i][$name]['content'])) ? $this->tabledata[$i][$name]['content'] : null;
+
+                if ( ! isset($this->tabledata[$i][$name]['content'])) {
+                    $content = null;
+                } else {
+                    if ($this->tabledata[$i][$name]['content'] == '-') {
+                        if (strpos($this->tabledata[$i][$name]['class'], ' item ')) {
+                            $placeholder = isset($this->tabledata[$i][$name]['placeholder']) ? $this->tabledata[$i][$name]['placeholder'] : 'Enter grade';
+                            $inputName = isset($this->tabledata[$i][$name]['inputName']) ? $this->tabledata[$i][$name]['inputName'] : 'default-input-gradeitem';
+                            $content = '<input type="text" name="' . $inputName . '" placeholder="' . $placeholder . '"><br>
+                                        <span class="fcst-error fcst-error-invalid" style="display: none; color: red;">Invalid input!</span>
+                                        <span class="fcst-error fcst-error-range" style="display: none; color: red;">Must be within range!</span>';
+                        } else {
+                            $content = 'NEED TOTAL';
+                        }
+                    } else {
+                        $content = $this->tabledata[$i][$name]['content'];
+                    }
+                }
 
                 $celltype = (isset($this->tabledata[$i][$name]['celltype'])) ? $this->tabledata[$i][$name]['celltype'] : 'td';
                 $id = (isset($this->tabledata[$i][$name]['id'])) ? "id='{$this->tabledata[$i][$name]['id']}'" : '';
@@ -516,7 +584,7 @@ class grade_report_forecast extends grade_report {
             $html .= "</tr>\n";
         }
 
-        $html .= "</tbody></table>";
+        $html .= "</tbody></table></form>";
 
         if ($return) {
             return $html;
@@ -534,12 +602,24 @@ class grade_report_forecast extends grade_report {
      */
     private function formatGradeDisplay($gradeValue, $gradeLetter) {
         $output = $gradeValue;
-        
-        if ($gradeValue !== '-' and $this->showlettergrade) {
-            $output .= ' (' . $gradeLetter . ')';
+
+        if ($this->valueIsGraded($gradeValue)) {
+            if ($this->showlettergrade) {
+                $output .= ' (' . $gradeLetter . ')';
+            }
         }
 
         return $output;
+    }
+
+    /**
+     * Reports whether or not a grade value has a real value
+     * 
+     * @param  string $gradeValue
+     * @return bool
+     */
+    private function valueIsGraded($gradeValue) {
+        return ($gradeValue !== '-') ? true : false;
     }
 
     /**
@@ -566,6 +646,200 @@ class grade_report_forecast extends grade_report {
             )
         );
         $event->trigger();
+    }
+
+    /**
+     * Fetches all of this course's categories, defaults to "flattened" array
+     * 
+     * @param  boolean $flattened
+     * @return array
+     */
+    private function getCourseCategories($flattened = false) {
+        $course_grade_categories = grade_category::fetch_all(array('courseid' => $this->courseid));
+        
+        if ( ! $flattened)
+            return $course_grade_categories;
+
+        $flatcattree = array();
+        
+        foreach ($course_grade_categories as $cat) {
+            if (!isset($flatcattree[$cat->depth])) {
+                $flatcattree[$cat->depth] = array();
+            }
+            $flatcattree[$cat->depth][] = $cat;
+        }
+
+        krsort($flatcattree);
+
+        return $flatcattree;
+    }
+
+    public function getUpdatedTotalsResponse() {
+        $categories = $this->getCourseCategories(false);
+
+        $response = [
+            'cats' => [
+                47 => 'forty seven',
+                48 => 'forty eight',
+                49 => 'forty nine',
+            ],
+            'course' => 'total',
+        ];
+
+        return $response;
+
+        // return $this->blank_hidden_total_and_adjust_bounds($courseid, $course_item, $finalgrade);
+
+        // $this->fill_table_recursive($this->gtree->top_element);
+
+        // return $this->tabledata;
+    }
+
+    /**
+     * Updates all final grades in course.
+     *
+     * @param int $courseid The course ID
+     * @param int $userid If specified try to do a quick regrading of the grades of this user only
+     * @param object $updated_item Optional grade item to be marked for regrading
+     * @return bool true if ok, array of errors if problems found. Grade item id => error message
+     */
+    function grade_regrade_final_grades($courseid, $userid, $updated_item = false) {
+        
+        $course_item = grade_item::fetch_course_item($courseid);
+
+        // Categories might have to run some processing before we fetch the grade items.
+        // This gives them a final opportunity to update and mark their children to be updated.
+        // We need to work on the children categories up to the parent ones, so that, for instance,
+        // if a category total is updated it will be reflected in the parent category.
+        $course_grade_categories = grade_category::fetch_all(array('courseid' => $courseid));
+        
+        $flatcattree = array();
+        
+        foreach ($course_grade_categories as $cat) {
+            if (!isset($flatcattree[$cat->depth])) {
+                $flatcattree[$cat->depth] = array();
+            }
+            $flatcattree[$cat->depth][] = $cat;
+        }
+        krsort($flatcattree);
+
+        foreach ($flatcattree as $depth => $course_grade_categories) {
+            foreach ($course_grade_categories as $cat) {
+                // $cat->pre_regrade_final_grades();
+            }
+        }
+
+        $course_grade_items = grade_item::fetch_all(array('courseid' => $courseid));
+
+        $depends_on = array();
+
+        foreach ($course_grade_items as $gid=>$gitem) {
+            if ((!empty($updated_item) and $updated_item->id == $gid) ||
+                    $gitem->is_course_item() || $gitem->is_category_item() || $gitem->is_calculated()) {
+                $course_grade_items[$gid]->needsupdate = 1;
+            }
+
+            // We load all dependencies of these items later we can discard some course_grade_items based on this.
+            if ($course_grade_items[$gid]->needsupdate) {
+                $depends_on[$gid] = $course_grade_items[$gid]->depends_on();
+            }
+        }
+
+        $errors = array();
+        $finalids = array();
+        $updatedids = array();
+        $gids     = array_keys($course_grade_items);
+        $failed = 0;
+
+        while (count($finalids) < count($gids)) { // work until all grades are final or error found
+            $count = 0;
+            foreach ($gids as $gid) {
+                if (in_array($gid, $finalids)) {
+                    continue; // already final
+                }
+
+                if (!$course_grade_items[$gid]->needsupdate) {
+                    $finalids[] = $gid; // we can make it final - does not need update
+                    continue;
+                }
+                
+                foreach ($depends_on[$gid] as $did) {
+                    if (!in_array($did, $finalids)) {
+                        // This item depends on something that is not yet in finals array.
+                        continue 2;
+                    }
+                }
+
+                // If this grade item has no dependancy with any updated item at all, then remove it from being recalculated.
+
+                // When we get here, all of this grade item's decendents are marked as final so they would be marked as updated too
+                // if they would have been regraded. We don't need to regrade items which dependants (not only the direct ones
+                // but any dependant in the cascade) have not been updated.
+
+                // If $updated_item was specified we discard the grade items that do not depend on it or on any grade item that
+                // depend on $updated_item.
+
+                // Here we check to see if the direct decendants are marked as updated.
+                if (!empty($updated_item) && $gid != $updated_item->id && !in_array($updated_item->id, $depends_on[$gid])) {
+
+                    // We need to ensure that none of this item's dependencies have been updated.
+                    // If we find that one of the direct decendants of this grade item is marked as updated then this
+                    // grade item needs to be recalculated and marked as updated.
+                    // Being marked as updated is done further down in the code.
+
+                    $updateddependencies = false;
+                    foreach ($depends_on[$gid] as $dependency) {
+                        if (in_array($dependency, $updatedids)) {
+                            $updateddependencies = true;
+                            break;
+                        }
+                    }
+                    if ($updateddependencies === false) {
+                        // If no direct descendants are marked as updated, then we don't need to update this grade item. We then mark it
+                        // as final.
+
+                        $finalids[] = $gid;
+                        continue;
+                    }
+                }
+
+                // Let's update, calculate or aggregate.
+                $result = $course_grade_items[$gid]->regrade_final_grades($userid);
+
+                if ($result === true) {
+                    $course_grade_items[$gid]->needsupdate = 0;
+                    $count++;
+                    $finalids[] = $gid;
+                    $updatedids[] = $gid;
+                } else {
+                    $course_grade_items[$gid]->force_regrading();
+                    $errors[$gid] = $result;
+                }
+            }
+
+            if ($count == 0) {
+                $failed++;
+            } else {
+                $failed = 0;
+            }
+
+            if ($failed > 1) {
+                foreach($gids as $gid) {
+                    if (in_array($gid, $finalids)) {
+                        continue; // this one is ok
+                    }
+                    $course_grade_items[$gid]->force_regrading();
+                    $errors[$course_grade_items[$gid]->id] = get_string('errorcalculationbroken', 'grades');
+                }
+                break; // Found error.
+            }
+        }
+
+        if (count($errors) == 0) {
+            return true;
+        } else {
+            return $errors;
+        }
     }
 }
 
@@ -634,13 +908,14 @@ function grade_report_forecast_profilereport($course, $user, $viewasuser = false
 
         $context = context_course::instance($course->id);
 
-        /// return tracking object
+        // get tracking object
         $gpr = new grade_plugin_return(array('type'=>'report', 'plugin'=>'forecast', 'courseid'=>$course->id, 'userid'=>$user->id));
-        // Create a report instance
+
+        // create a report instance
         $report = new grade_report_forecast($course->id, $gpr, $context, $user->id, $viewasuser);
 
-        // print the page
-        echo '<div class="grade-report-forecast">'; // css fix to share styles with real report page
+        // print the report
+        echo '<div class="grade-report-forecast">';
         if ($report->fill_table()) {
             echo $report->print_table(true);
         }
@@ -691,4 +966,26 @@ function gradereport_forecast_myprofile_navigation(core_user\output\myprofile\tr
             $tree->add_node($node);
         }
     }
+}
+
+/**
+ * Returns an array of grade item inputs from POST data in form: (grade_item_id as int) => (input value as string), or empty array if null
+ * 
+ * @return array
+ */
+function getGradeItemInput() {
+    if ( empty($_POST))
+        return [];
+
+    $gradeItemInput = [];
+
+    foreach ($_POST as $key => $value) {
+        // input-gradeitem-
+        $itemId = substr($key, 16);
+
+        if ($itemId)
+            $gradeItemInput[$itemId] = $value;
+    }
+
+    return $gradeItemInput;
 }
