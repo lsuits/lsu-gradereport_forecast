@@ -41,6 +41,8 @@ $gpr = new grade_plugin_return(['type' => 'report', 'plugin' => 'forecast', 'cou
 $context = context_course::instance($courseid);
 $PAGE->set_context($context);
 
+// begin the report stuff...
+
 // get all grade item input (missing grade items only)
 $gradeItemInput = getGradeItemInput();
 
@@ -48,4 +50,9 @@ $gradeItemInput = getGradeItemInput();
 $report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, $gradeItemInput);
 
 // return the json encoded response
-echo json_encode($report->getUpdatedTotalsResponse());
+// echo json_encode($report->getCalculatedTotalsResponse());
+
+// testing...
+// echo '<pre>';
+echo json_encode($report->getCalculatedTotalsResponse());
+// echo '</pre>';

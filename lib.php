@@ -24,6 +24,7 @@
 
 require_once($CFG->dirroot . '/grade/report/lib.php');
 require_once($CFG->libdir.'/tablelib.php');
+require_once(__DIR__ . '/classes/forecast_category.php');
 
 //showhiddenitems values
 define("GRADE_REPORT_FORECAST_HIDE_HIDDEN", 0);
@@ -447,6 +448,7 @@ class grade_report_forecast extends grade_report {
                     $placeholder = $grade_grade->grade_item->grademin . ' - ' . $grade_grade->grade_item->grademax;
                     $inputName = 'input-gradeitem-' . $eid;
                 } elseif ($type == 'categoryitem') {
+                    // $class .= ' fcst-cat-' . $grade_grade->grade_item->get_parent_category()->id . ' ';
                     $class .= ' fcst-cat-' . $eid . ' ';
                 } elseif ($type == 'courseitem') {
                     $class .= ' fcst-course-' . $eid . ' ';
@@ -567,7 +569,7 @@ class grade_report_forecast extends grade_report {
                                         <span class="fcst-error fcst-error-invalid" style="display: none; color: red;">Invalid input!</span>
                                         <span class="fcst-error fcst-error-range" style="display: none; color: red;">Must be within range!</span>';
                         } else {
-                            $content = 'NEED TOTAL';
+                            $content = '--';
                         }
                     } else {
                         $content = $this->tabledata[$i][$name]['content'];
@@ -649,7 +651,123 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
-     * Fetches all of this course's categories, defaults to "flattened" array
+     * Returns an array of this user's forecasted category and course grades for this course considering any input values
+     * 
+     * @return array
+     */
+    public function getCalculatedTotalsResponse() {
+
+        // create new response
+        $response = $this->newResponse();
+
+        // add category grades to response
+        $response = $this->addCategoryGradesToResponse($response);
+
+        // add course grade to response
+        $response = $this->addCourseGradeToResponse($response);
+        
+        return $response;
+    }
+
+    /**
+     * Returns an empty response array
+     * 
+     * @return array
+     */
+    private function newResponse() {
+        return [
+            'cats' => [],
+            'course' => '',
+        ];
+    }
+
+    /**
+     * Adds to the response all category and corresponding grade information
+     * 
+     * @param  array  $response
+     * @return array  $response
+     */
+    private function addCategoryGradesToResponse($response) {
+        // get this course's "category" grade items
+        $category_grade_items = $this->getCourseCategoryGradeItems();
+
+        foreach ($category_grade_items as $category_grade_item_id => $category_grade_item) {
+            // create a forecast_category from this category_grade_item
+            $forecast_category = forecast_category::findByGradeItemId($category_grade_item_id);
+
+            // get all nested grade_items for this category_grade_item
+            $items = $forecast_category->getNestedGradeItems();
+
+            $values = [];
+
+            foreach ($items as $nested_item_id => $nested_item) {
+                // if a grade has been input for this item, include it in the results
+                if (array_key_exists($nested_item_id, $this->inputData)) {
+                    $values[$nested_item_id] = $this->inputData[$nested_item_id];
+                } else {
+                    // otherwise, try to get a grade for this user
+                    $grade = $nested_item->get_grade($this->user->id);
+
+                    // if no grade, remove the item from the calculation, otherwise inclue it in the results
+                    if (is_null($grade->finalgrade)) {
+                        unset($items[$nested_item_id]);
+                    } else {
+                        $values[$nested_item_id] = $grade->finalgrade;
+                    }
+                }
+            }
+
+            // assign aggregated grade value to item
+            $response['cats'][$category_grade_item_id] = $forecast_category->getForecastedGrade($items, $values, 'number');
+        }
+
+        return $response;
+    }
+
+    /**
+     * Adds to the response all course grade information
+     * 
+     * @param  array  $response
+     * @return array  $response
+     */
+    private function addCourseGradeToResponse($response) {
+        $course_grade_item = $this->getCourseGradeItem();  
+
+        $response['course'] = 'course total';
+
+        return $response;
+    }
+
+    /**
+     * Fetches all "category" grade_items for this course
+     * 
+     * @return array  grade_item_id => grade_item
+     */
+    private function getCourseCategoryGradeItems() {
+        $category_grade_items = grade_item::fetch_all([
+            'courseid' => $this->courseid,
+            'itemtype' => 'category'
+        ]);
+
+        return $category_grade_items;
+    }
+
+    /**
+     * Fetches the "course" grade_item for this course
+     * 
+     * @return grade_item
+     */
+    private function getCourseGradeItem() {
+        $course_grade_item = grade_item::fetch([
+            'courseid' => $this->courseid,
+            'itemtype' => 'course'
+        ]);
+
+        return $course_grade_item;
+    }
+
+    /**
+     * Fetches all of this course's categories, defaults to "flattened" array (unused)
      * 
      * @param  boolean $flattened
      * @return array
@@ -674,172 +792,15 @@ class grade_report_forecast extends grade_report {
         return $flatcattree;
     }
 
-    public function getUpdatedTotalsResponse() {
-        $categories = $this->getCourseCategories(false);
-
-        $response = [
-            'cats' => [
-                47 => 'forty seven',
-                48 => 'forty eight',
-                49 => 'forty nine',
-            ],
-            'course' => 'total',
-        ];
-
-        return $response;
-
-        // return $this->blank_hidden_total_and_adjust_bounds($courseid, $course_item, $finalgrade);
-
-        // $this->fill_table_recursive($this->gtree->top_element);
-
-        // return $this->tabledata;
-    }
-
     /**
-     * Updates all final grades in course.
-     *
-     * @param int $courseid The course ID
-     * @param int $userid If specified try to do a quick regrading of the grades of this user only
-     * @param object $updated_item Optional grade item to be marked for regrading
-     * @return bool true if ok, array of errors if problems found. Grade item id => error message
+     * Fetches the course grade tree (unused)
+     * 
+     * @return array
      */
-    function grade_regrade_final_grades($courseid, $userid, $updated_item = false) {
-        
-        $course_item = grade_item::fetch_course_item($courseid);
+    private function getCourseGradeTree() {
+        $course_tree = grade_category::fetch_course_tree($this->courseid, true);
 
-        // Categories might have to run some processing before we fetch the grade items.
-        // This gives them a final opportunity to update and mark their children to be updated.
-        // We need to work on the children categories up to the parent ones, so that, for instance,
-        // if a category total is updated it will be reflected in the parent category.
-        $course_grade_categories = grade_category::fetch_all(array('courseid' => $courseid));
-        
-        $flatcattree = array();
-        
-        foreach ($course_grade_categories as $cat) {
-            if (!isset($flatcattree[$cat->depth])) {
-                $flatcattree[$cat->depth] = array();
-            }
-            $flatcattree[$cat->depth][] = $cat;
-        }
-        krsort($flatcattree);
-
-        foreach ($flatcattree as $depth => $course_grade_categories) {
-            foreach ($course_grade_categories as $cat) {
-                // $cat->pre_regrade_final_grades();
-            }
-        }
-
-        $course_grade_items = grade_item::fetch_all(array('courseid' => $courseid));
-
-        $depends_on = array();
-
-        foreach ($course_grade_items as $gid=>$gitem) {
-            if ((!empty($updated_item) and $updated_item->id == $gid) ||
-                    $gitem->is_course_item() || $gitem->is_category_item() || $gitem->is_calculated()) {
-                $course_grade_items[$gid]->needsupdate = 1;
-            }
-
-            // We load all dependencies of these items later we can discard some course_grade_items based on this.
-            if ($course_grade_items[$gid]->needsupdate) {
-                $depends_on[$gid] = $course_grade_items[$gid]->depends_on();
-            }
-        }
-
-        $errors = array();
-        $finalids = array();
-        $updatedids = array();
-        $gids     = array_keys($course_grade_items);
-        $failed = 0;
-
-        while (count($finalids) < count($gids)) { // work until all grades are final or error found
-            $count = 0;
-            foreach ($gids as $gid) {
-                if (in_array($gid, $finalids)) {
-                    continue; // already final
-                }
-
-                if (!$course_grade_items[$gid]->needsupdate) {
-                    $finalids[] = $gid; // we can make it final - does not need update
-                    continue;
-                }
-                
-                foreach ($depends_on[$gid] as $did) {
-                    if (!in_array($did, $finalids)) {
-                        // This item depends on something that is not yet in finals array.
-                        continue 2;
-                    }
-                }
-
-                // If this grade item has no dependancy with any updated item at all, then remove it from being recalculated.
-
-                // When we get here, all of this grade item's decendents are marked as final so they would be marked as updated too
-                // if they would have been regraded. We don't need to regrade items which dependants (not only the direct ones
-                // but any dependant in the cascade) have not been updated.
-
-                // If $updated_item was specified we discard the grade items that do not depend on it or on any grade item that
-                // depend on $updated_item.
-
-                // Here we check to see if the direct decendants are marked as updated.
-                if (!empty($updated_item) && $gid != $updated_item->id && !in_array($updated_item->id, $depends_on[$gid])) {
-
-                    // We need to ensure that none of this item's dependencies have been updated.
-                    // If we find that one of the direct decendants of this grade item is marked as updated then this
-                    // grade item needs to be recalculated and marked as updated.
-                    // Being marked as updated is done further down in the code.
-
-                    $updateddependencies = false;
-                    foreach ($depends_on[$gid] as $dependency) {
-                        if (in_array($dependency, $updatedids)) {
-                            $updateddependencies = true;
-                            break;
-                        }
-                    }
-                    if ($updateddependencies === false) {
-                        // If no direct descendants are marked as updated, then we don't need to update this grade item. We then mark it
-                        // as final.
-
-                        $finalids[] = $gid;
-                        continue;
-                    }
-                }
-
-                // Let's update, calculate or aggregate.
-                $result = $course_grade_items[$gid]->regrade_final_grades($userid);
-
-                if ($result === true) {
-                    $course_grade_items[$gid]->needsupdate = 0;
-                    $count++;
-                    $finalids[] = $gid;
-                    $updatedids[] = $gid;
-                } else {
-                    $course_grade_items[$gid]->force_regrading();
-                    $errors[$gid] = $result;
-                }
-            }
-
-            if ($count == 0) {
-                $failed++;
-            } else {
-                $failed = 0;
-            }
-
-            if ($failed > 1) {
-                foreach($gids as $gid) {
-                    if (in_array($gid, $finalids)) {
-                        continue; // this one is ok
-                    }
-                    $course_grade_items[$gid]->force_regrading();
-                    $errors[$course_grade_items[$gid]->id] = get_string('errorcalculationbroken', 'grades');
-                }
-                break; // Found error.
-            }
-        }
-
-        if (count($errors) == 0) {
-            return true;
-        } else {
-            return $errors;
-        }
+        return $course_tree;
     }
 }
 
