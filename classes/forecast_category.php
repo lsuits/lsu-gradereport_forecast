@@ -94,22 +94,39 @@ class forecast_category extends grade_category {
     }
 
     /**
-     * Returns a forecasted grade total value given grade_items and corresponding grade values to consider
+     * Returns a forecasted grade value (a decimal from 0 to 1) given grade_items and corresponding grade values to consider
      * 
      * @param  array  $grade_items grade_item_id => grade_item
      * @param  array  $values      grade_item_id => value
      * @return decimal
      */
-    public function getForecastedTotal($grade_items, $values) {
-        $aggregate = $this->getAggregate($grade_items, $values);
+    public function getForecastedValue($grade_items, $values) {
+        $normalizedValues = $this->normalizeGradeValues($grade_items, $values);
+
+        $aggregate = $this->getAggregate($grade_items, $normalizedValues);
 
         if ( ! $aggregate) {
             return 0;
         }
 
-        $itemCount = count($grade_items);
+        return $this->getAggregateGrade($aggregate);
+    }
 
-        return $this->formatAggregateDisplay($aggregate, $itemCount);
+    /**
+     * Normalizes given grade values by referencing their corresponding grade_items
+     * 
+     * @param  array  $grade_items grade_item_id => grade_item
+     * @param  array  $values      grade_item_id => value
+     * @return array
+     */
+    private function normalizeGradeValues($grade_items, $values) {
+        $normalizedValues = [];
+        
+        foreach ($values as $id => $value) {
+            $normalizedValues[$id] = $value / ($grade_items[$id]->grademax - $grade_items[$id]->grademin);
+        }
+        
+        return $normalizedValues;
     }
 
     /**
@@ -125,120 +142,16 @@ class forecast_category extends grade_category {
         return ( ! is_null($aggregate)) ? $aggregate : false;
     }
 
-    // UNUSED!
-    private function formatAggregateDisplay($aggregate, $count) {
-        $grade = $aggregate['grade'];
-        $min = $aggregate['grademin'];
-        $max = $aggregate['grademax'];
-
-        $gradeTotal = $grade * $count;
-
-
-        $total = $this->formatAggregateTotal($gradeTotal);
-        $letter = $this->formatAggregateLetter($gradeTotal);
-        $percentage = $this->formatAggregatePercentage($gradeTotal);
-
-        $standardized = grade_grade::standardise_score($gradeTotal, 0, 1, $min, $max);
-        
-        $output = 
-            '<br>aggregation: ' . $this->gradeCategory->aggregation . 
-            '<br>grade: ' . $grade . 
-            '<br>grade formatted: ' . $this->formatAggregateTotal($grade) . 
-            '<br>letter formatted: ' . $this->formatAggregateLetter($grade) . 
-            '<br>percentage formatted: ' . $this->formatAggregatePercentage($grade) . 
-            '<br>gradeTotal: ' . $gradeTotal . 
-            '<br>standardized: ' . $standardized . 
-            '<br>min: ' . $min . 
-            '<br>max: ' . $max . 
-            '<br>total: ' . $total . 
-            '<br>letter: ' . $letter . 
-            '<br>percentage: ' . $percentage;
-
-        // $grade
-        // $gradeTotal
-        // $min
-        // $max
-        // $total
-        // $letter
-        // $percentage
-        
-
-
-        // return $this->formatPercentage(($grade / ($aggregate['grademax'] - $aggregate['grademin'])) * 100);
-
-        // show total (points) by default
-        // $output = $total;
-
-        // if ($this->showlettergrade) {
-            // $output .= '  -  ' . $letter;
-        // }
-
-        // if ($this->showgradepercentage) {
-            // $output .= '  -  ' . $percentage;
-        // }
-
-        return $output;
-    }
-
-    private function formatAggregateTotal($value) {
-        return grade_format_gradevalue($value, $this->gradeItem, true, GRADE_DISPLAY_TYPE_REAL, null);
-    }
-
-    private function formatAggregateLetter($value) {
-        return grade_format_gradevalue($value, $this->gradeItem, true, GRADE_DISPLAY_TYPE_LETTER, null);
-    }
-
-    private function formatAggregatePercentage($value) {
-        return grade_format_gradevalue($value, $this->gradeItem, true, GRADE_DISPLAY_TYPE_PERCENTAGE, null);
-    }
-
     /**
-     * (UNUSED) Returns an aggregated value given an "aggregate" array, optionally "standarizes" and "binds" value
+     * Getter for aggregate "grade" value
      * 
-     * @param  array  $aggregate  [grade|grademin|grademax]
-     * @param  bool   $standardize
-     * @param  bool   $bindGradeResult
-     * @return mixed
-     */
-    private function getAggregatedValue($aggregate, $standardize = false, $bindGradeResult = false) {
-        if ( ! $standardize)
-            return $aggregate['grade'];
-
-        // Set the actual grademin and max to bind the grade properly.
-        $this->gradeItem->grademin = $aggregate['grademin'];
-        $this->gradeItem->grademax = $aggregate['grademax'];
-
-        if ($this->gradeCategory->aggregation == GRADE_AGGREGATE_SUM) {
-            // The natural aggregation always displays the range as coming from 0 for categories.
-            // However, when we bind the grade we allow for negative values.
-            $aggregate['grademin'] = 0;
-        }
-
-        // Recalculate the grade back to requested range.
-        $finalgrade = grade_grade::standardise_score($aggregate['grade'], 0, 1, $aggregate['grademin'], $aggregate['grademax']);
-        
-        // return $finalgrade;
-        return ($bindGradeResult) ? $this->gradeItem->bounded_grade($finalgrade) : $finalgrade;
-    }
-
-    /**
-     * Helper for rounding a number to 4 places
-     * 
-     * @param  mixed  $number
+     * @param  array $aggregate [grade|grademin|grademax]
      * @return decimal
      */
-    private function formatNumber($number) {
-        return number_format($number, 4);
-    }
+    private function getAggregateGrade($aggregate) {
+        $grade = $aggregate['grade'];
 
-    /**
-     * Helper for displaying a percentage
-     * 
-     * @param  float $percentage
-     * @return string
-     */
-    private function formatPercentage($percentage) {
-        return sprintf("%.2f%%", $percentage);
+        return $grade;
     }
 
     /**

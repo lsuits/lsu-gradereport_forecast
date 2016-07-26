@@ -328,33 +328,8 @@ class grade_report_forecast extends grade_report {
                 $grade_grade = new grade_grade([
                     'userid' => $this->user->id,
                     'itemid' => $grade_object->id,
-                    // 'finalgrade' => '8.5'
                 ], false);
-                // $grade_grade->userid = $this->user->id;
-                // $grade_grade->itemid = $grade_object->id;
             }
-
-            // $grade_grade = new grade_grade([
-                // 'itemid' => $grade_object->id,
-                // 'userid' => $this->user->id,
-                // 'finalgrade' => '5.9',
-                // // 'id' => '',
-                // // 'rawgrade' => '',
-                // // 'rawgrademax' => '',
-                // // 'rawgrademin' => '',
-                // // 'rawscaleid' => '',
-                // // 'usermodified' => '',
-                // // 'hidden' => '',
-                // // 'locked', => '',
-                // // 'locktime' => '',
-                // // 'exported' => '',
-                // // 'overridden' => '',
-                // // 'excluded' => '',
-                // // 'timecreated' => '',
-                // // 'timemodified' => '',
-                // // 'aggregationstatus' => '',
-                // // 'aggregationweight' => '',
-            // ]);
 
             $grade_grade->load_grade_item();
 
@@ -722,13 +697,13 @@ class grade_report_forecast extends grade_report {
             }
 
             // get the forecasted (aggregated) category grade total value for these items and values
-            $categoryTotalValue = $forecast_category->getForecastedTotal($gradeItems, $gradeValues);
+            $categoryTotalValue = $forecast_category->getForecastedValue($gradeItems, $gradeValues);
 
-            // assign category grade total value to response array
-            $response['cats'][$category_grade_item_id] = $categoryTotalValue;
-            
             // include this value for the final course aggregation
             $categoryGradeValues[] = $categoryTotalValue;
+
+            // assign category grade total value to response array
+            $response['cats'][$category_grade_item_id] = $this->formatCategoryGradeItemDisplay($categoryTotalValue, $category_grade_item);
         }
 
         // get this course's "course" grade item
@@ -738,9 +713,41 @@ class grade_report_forecast extends grade_report {
         $forecast_category = forecast_category::findByGradeItemId($course_grade_item->id);
 
         // get the forecasted (aggregated) course grade total value for these items and values
-        $response['course'] = $forecast_category->getForecastedTotal($categoryGradeItems, $categoryGradeValues);
+        $response['course'] = $forecast_category->getForecastedValue($categoryGradeItems, $categoryGradeValues);
 
         return $response;
+    }
+
+    private function formatCategoryGradeItemDisplay($value, $gradeItem) {
+        $decimalPlaces = $gradeItem->get_decimals();
+
+        $percentage = $this->formatPercentage($value * 100, $decimalPlaces);
+
+        $points = $this->formatNumber($value * $gradeItem->grademax, $decimalPlaces);
+
+        // $letter = grade_format_gradevalue_letter($value, $gradeItem);
+
+        return 'percentage: ' . $percentage . '<br>points: ' . $points;
+    }
+
+    /**
+     * Helper for displaying a percentage including 4 decimal places
+     * 
+     * @param  mixed $value
+     * @return string
+     */
+    private function formatPercentage($value, $decimals) {
+        return $this->formatNumber($value, $decimals) . '%';
+    }
+
+    /**
+    * Helper for rounding a number to 4 places
+    * 
+    * @param  mixed  $value
+    * @return decimal
+    */
+    private function formatNumber($value, $decimals) {
+        return number_format($value, $decimals);
     }
 
     /**
