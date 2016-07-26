@@ -5,7 +5,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/grade/grade_category.php');
 
 /**
- * A wrapper class for grade_category that represents a "category" which value may be forecasted/manipulated
+ * A wrapper class for grade_category that represents a "category" or "course" which value may be forecasted/manipulated
  */
 class forecast_category extends grade_category {
 
@@ -94,49 +94,26 @@ class forecast_category extends grade_category {
     }
 
     /**
-     * Returns a formatted, forecasted grade value given grade_items and corresponding values to consider
+     * Returns a forecasted grade total value given grade_items and corresponding grade values to consider
      * 
      * @param  array  $grade_items grade_item_id => grade_item
      * @param  array  $values      grade_item_id => value
-     * @param  string $type        number|percentage
      * @return decimal
      */
-    public function getForecastedGrade($grade_items, $values, $type) {
+    public function getForecastedTotal($grade_items, $values) {
         $aggregate = $this->getAggregate($grade_items, $values);
 
         if ( ! $aggregate) {
-            return $this->formatNumberByType(0, $type);
+            return 0;
         }
 
-        $aggregated_value = $this->getAggregatedValue($aggregate, true);
+        $itemCount = count($grade_items);
 
-        return $this->formatNumberByType($aggregated_value, $type);
+        return $this->formatAggregateDisplay($aggregate, $itemCount);
     }
 
     /**
-     * Returns a number formatted in specified "type"
-     * 
-     * @param  mixed  $number
-     * @param  string  $type  number|percentage
-     * @return string
-     */
-    private function formatNumberByType($number, $type) {
-        switch ($type) {
-            case 'number':
-                return $this->formatNumber($number);
-                break;
-            
-            case 'percentage':
-                return $this->formatPercentage($number);
-                break;
-            default:
-                return $number;
-                break;
-        }
-    }
-
-    /**
-     * Calculates a current "aggregate" for this category given grade_items and corresponding values to consider
+     * Returns the "aggregate" for this category given grade_items and corresponding grade values to consider
      * 
      * @param  array  $grade_items grade_item_id => grade_item
      * @param  array  $values      grade_item_id => value
@@ -148,14 +125,82 @@ class forecast_category extends grade_category {
         return ( ! is_null($aggregate)) ? $aggregate : false;
     }
 
+    // UNUSED!
+    private function formatAggregateDisplay($aggregate, $count) {
+        $grade = $aggregate['grade'];
+        $min = $aggregate['grademin'];
+        $max = $aggregate['grademax'];
+
+        $gradeTotal = $grade * $count;
+
+
+        $total = $this->formatAggregateTotal($gradeTotal);
+        $letter = $this->formatAggregateLetter($gradeTotal);
+        $percentage = $this->formatAggregatePercentage($gradeTotal);
+
+        $standardized = grade_grade::standardise_score($gradeTotal, 0, 1, $min, $max);
+        
+        $output = 
+            '<br>aggregation: ' . $this->gradeCategory->aggregation . 
+            '<br>grade: ' . $grade . 
+            '<br>grade formatted: ' . $this->formatAggregateTotal($grade) . 
+            '<br>letter formatted: ' . $this->formatAggregateLetter($grade) . 
+            '<br>percentage formatted: ' . $this->formatAggregatePercentage($grade) . 
+            '<br>gradeTotal: ' . $gradeTotal . 
+            '<br>standardized: ' . $standardized . 
+            '<br>min: ' . $min . 
+            '<br>max: ' . $max . 
+            '<br>total: ' . $total . 
+            '<br>letter: ' . $letter . 
+            '<br>percentage: ' . $percentage;
+
+        // $grade
+        // $gradeTotal
+        // $min
+        // $max
+        // $total
+        // $letter
+        // $percentage
+        
+
+
+        // return $this->formatPercentage(($grade / ($aggregate['grademax'] - $aggregate['grademin'])) * 100);
+
+        // show total (points) by default
+        // $output = $total;
+
+        // if ($this->showlettergrade) {
+            // $output .= '  -  ' . $letter;
+        // }
+
+        // if ($this->showgradepercentage) {
+            // $output .= '  -  ' . $percentage;
+        // }
+
+        return $output;
+    }
+
+    private function formatAggregateTotal($value) {
+        return grade_format_gradevalue($value, $this->gradeItem, true, GRADE_DISPLAY_TYPE_REAL, null);
+    }
+
+    private function formatAggregateLetter($value) {
+        return grade_format_gradevalue($value, $this->gradeItem, true, GRADE_DISPLAY_TYPE_LETTER, null);
+    }
+
+    private function formatAggregatePercentage($value) {
+        return grade_format_gradevalue($value, $this->gradeItem, true, GRADE_DISPLAY_TYPE_PERCENTAGE, null);
+    }
+
     /**
-     * Returns an aggregated value given an "aggregate" array, optionally "standarizes" value
+     * (UNUSED) Returns an aggregated value given an "aggregate" array, optionally "standarizes" and "binds" value
      * 
      * @param  array  $aggregate  [grade|grademin|grademax]
-     * @param  bool  $standardize
+     * @param  bool   $standardize
+     * @param  bool   $bindGradeResult
      * @return mixed
      */
-    private function getAggregatedValue($aggregate, $standardize = false) {
+    private function getAggregatedValue($aggregate, $standardize = false, $bindGradeResult = false) {
         if ( ! $standardize)
             return $aggregate['grade'];
 
@@ -172,9 +217,8 @@ class forecast_category extends grade_category {
         // Recalculate the grade back to requested range.
         $finalgrade = grade_grade::standardise_score($aggregate['grade'], 0, 1, $aggregate['grademin'], $aggregate['grademax']);
         
-        // TODO: do we bind or not?
-        return $finalgrade;
-        return $this->gradeItem->bounded_grade($finalgrade);
+        // return $finalgrade;
+        return ($bindGradeResult) ? $this->gradeItem->bounded_grade($finalgrade) : $finalgrade;
     }
 
     /**
@@ -194,7 +238,7 @@ class forecast_category extends grade_category {
      * @return string
      */
     private function formatPercentage($percentage) {
-        return sprintf("%.2f%%", $percentage * 100);
+        return sprintf("%.2f%%", $percentage);
     }
 
     /**
