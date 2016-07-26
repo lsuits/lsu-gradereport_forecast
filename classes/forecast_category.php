@@ -5,7 +5,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/grade/grade_category.php');
 
 /**
- * A wrapper class for grade_category that represents a "category" which value may be forecasted/manipulated
+ * A wrapper class for grade_category that represents a "category" or "course" which value may be forecasted/manipulated
  */
 class forecast_category extends grade_category {
 
@@ -94,49 +94,43 @@ class forecast_category extends grade_category {
     }
 
     /**
-     * Returns a formatted, forecasted grade value given grade_items and corresponding values to consider
+     * Returns a forecasted grade value (a decimal from 0 to 1) given grade_items and corresponding grade values to consider
      * 
      * @param  array  $grade_items grade_item_id => grade_item
      * @param  array  $values      grade_item_id => value
-     * @param  string $type        number|percentage
      * @return decimal
      */
-    public function getForecastedGrade($grade_items, $values, $type) {
-        $aggregate = $this->getAggregate($grade_items, $values);
+    public function getForecastedValue($grade_items, $values) {
+        $normalizedValues = $this->normalizeGradeValues($grade_items, $values);
+
+        $aggregate = $this->getAggregate($grade_items, $normalizedValues);
 
         if ( ! $aggregate) {
-            return $this->formatNumberByType(0, $type);
+            return 0;
         }
 
-        $aggregated_value = $this->getAggregatedValue($aggregate, true);
-
-        return $this->formatNumberByType($aggregated_value, $type);
+        return $this->getAggregateGrade($aggregate);
     }
 
     /**
-     * Returns a number formatted in specified "type"
+     * Normalizes given grade values by referencing their corresponding grade_items
      * 
-     * @param  mixed  $number
-     * @param  string  $type  number|percentage
-     * @return string
+     * @param  array  $grade_items grade_item_id => grade_item
+     * @param  array  $values      grade_item_id => value
+     * @return array
      */
-    private function formatNumberByType($number, $type) {
-        switch ($type) {
-            case 'number':
-                return $this->formatNumber($number);
-                break;
-            
-            case 'percentage':
-                return $this->formatPercentage($number);
-                break;
-            default:
-                return $number;
-                break;
+    private function normalizeGradeValues($grade_items, $values) {
+        $normalizedValues = [];
+        
+        foreach ($values as $id => $value) {
+            $normalizedValues[$id] = $value / ($grade_items[$id]->grademax - $grade_items[$id]->grademin);
         }
+        
+        return $normalizedValues;
     }
 
     /**
-     * Calculates a current "aggregate" for this category given grade_items and corresponding values to consider
+     * Returns the "aggregate" for this category given grade_items and corresponding grade values to consider
      * 
      * @param  array  $grade_items grade_item_id => grade_item
      * @param  array  $values      grade_item_id => value
@@ -149,52 +143,15 @@ class forecast_category extends grade_category {
     }
 
     /**
-     * Returns an aggregated value given an "aggregate" array, optionally "standarizes" value
+     * Getter for aggregate "grade" value
      * 
-     * @param  array  $aggregate  [grade|grademin|grademax]
-     * @param  bool  $standardize
-     * @return mixed
-     */
-    private function getAggregatedValue($aggregate, $standardize = false) {
-        if ( ! $standardize)
-            return $aggregate['grade'];
-
-        // Set the actual grademin and max to bind the grade properly.
-        $this->gradeItem->grademin = $aggregate['grademin'];
-        $this->gradeItem->grademax = $aggregate['grademax'];
-
-        if ($this->gradeCategory->aggregation == GRADE_AGGREGATE_SUM) {
-            // The natural aggregation always displays the range as coming from 0 for categories.
-            // However, when we bind the grade we allow for negative values.
-            $aggregate['grademin'] = 0;
-        }
-
-        // Recalculate the grade back to requested range.
-        $finalgrade = grade_grade::standardise_score($aggregate['grade'], 0, 1, $aggregate['grademin'], $aggregate['grademax']);
-        
-        // TODO: do we bind or not?
-        return $finalgrade;
-        return $this->gradeItem->bounded_grade($finalgrade);
-    }
-
-    /**
-     * Helper for rounding a number to 4 places
-     * 
-     * @param  mixed  $number
+     * @param  array $aggregate [grade|grademin|grademax]
      * @return decimal
      */
-    private function formatNumber($number) {
-        return number_format($number, 4);
-    }
+    private function getAggregateGrade($aggregate) {
+        $grade = $aggregate['grade'];
 
-    /**
-     * Helper for displaying a percentage
-     * 
-     * @param  float $percentage
-     * @return string
-     */
-    private function formatPercentage($percentage) {
-        return sprintf("%.2f%%", $percentage * 100);
+        return $grade;
     }
 
     /**

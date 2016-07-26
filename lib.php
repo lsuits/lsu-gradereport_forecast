@@ -92,10 +92,16 @@ class grade_report_forecast extends grade_report {
     public $rangedecimals = 0;
 
     /**
-     * Show letter grades in the report, default false
+     * Show letter grades in the report, default true
      * @var bool
      */
-    public $showlettergrade = false;
+    public $showlettergrade = true;
+
+    /**
+     * Show grade percentages in the report, default true
+     * @var bool
+     */
+    public $showgradepercentage = true;
 
     public $maxdepth;
     public $evenodd;
@@ -162,6 +168,8 @@ class grade_report_forecast extends grade_report {
         $this->showtotalsifcontainhidden = array($this->courseid => grade_get_setting($this->courseid, 'report_forecast_showtotalsifcontainhidden', $CFG->grade_report_forecast_showtotalsifcontainhidden));
 
         $this->showlettergrade = grade_get_setting($this->courseid, 'report_forecast_showlettergrade', !empty($CFG->grade_report_forecast_showlettergrade));
+
+        $this->showgradepercentage = grade_get_setting($this->courseid, 'report_forecast_showgradepercentage', !empty($CFG->grade_report_forecast_showgradepercentage));
 
         $this->viewasuser = $viewasuser;
 
@@ -320,33 +328,8 @@ class grade_report_forecast extends grade_report {
                 $grade_grade = new grade_grade([
                     'userid' => $this->user->id,
                     'itemid' => $grade_object->id,
-                    // 'finalgrade' => '8.5'
                 ], false);
-                // $grade_grade->userid = $this->user->id;
-                // $grade_grade->itemid = $grade_object->id;
             }
-
-            // $grade_grade = new grade_grade([
-                // 'itemid' => $grade_object->id,
-                // 'userid' => $this->user->id,
-                // 'finalgrade' => '5.9',
-                // // 'id' => '',
-                // // 'rawgrade' => '',
-                // // 'rawgrademax' => '',
-                // // 'rawgrademin' => '',
-                // // 'rawscaleid' => '',
-                // // 'usermodified' => '',
-                // // 'hidden' => '',
-                // // 'locked', => '',
-                // // 'locktime' => '',
-                // // 'exported' => '',
-                // // 'overridden' => '',
-                // // 'excluded' => '',
-                // // 'timecreated' => '',
-                // // 'timemodified' => '',
-                // // 'aggregationstatus' => '',
-                // // 'aggregationweight' => '',
-            // ]);
 
             $grade_grade->load_grade_item();
 
@@ -436,19 +419,18 @@ class grade_report_forecast extends grade_report {
                 $inputName = '';
 
                 // get grade and value
-                $gradeValue = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true);
-                $gradeLetter = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true, GRADE_DISPLAY_TYPE_LETTER);
+                        // $gradeValue = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true);
+                        // $gradeLetter = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true, GRADE_DISPLAY_TYPE_LETTER);
                 
                 // determine what type of grade item this is and apply the proper "fcst" class
                 if ($type == 'item') {
                     // mark static/dynamic depending on whether there is a grade or not
-                    $class .= ' fcst-' . (($this->valueIsGraded($gradeValue)) ? 'static' : 'dynamic' ) . '-item-' . $eid . ' ';
+                    $class .= ' fcst-' . (( ! is_null($gradeval)) ? 'static' : 'dynamic' ) . '-item-' . $eid . ' ';
                     $class .= ' grade-max-' . $grade_grade->grade_item->grademax;
                     $class .= ' grade-min-' . $grade_grade->grade_item->grademin;
                     $placeholder = $grade_grade->grade_item->grademin . ' - ' . $grade_grade->grade_item->grademax;
                     $inputName = 'input-gradeitem-' . $eid;
                 } elseif ($type == 'categoryitem') {
-                    // $class .= ' fcst-cat-' . $grade_grade->grade_item->get_parent_category()->id . ' ';
                     $class .= ' fcst-cat-' . $eid . ' ';
                 } elseif ($type == 'courseitem') {
                     $class .= ' fcst-course-' . $eid . ' ';
@@ -469,13 +451,13 @@ class grade_report_forecast extends grade_report {
                     $data['grade']['class'] = $class.' dimmed_text';
                     $data['grade']['content'] = '-';
                     if ($this->canviewhidden) {
-                        $data['grade']['content'] = $this->formatGradeDisplay($gradeValue, $gradeLetter);
+                        $data['grade']['content'] = $this->formatGradeDisplay($gradeval, $grade_grade->grade_item);
                         $data['grade']['placeholder'] = $placeholder;
                         $data['grade']['inputName'] = $inputName;
                     }
                 } else {
                     $data['grade']['class'] = $class;
-                    $data['grade']['content'] = $this->formatGradeDisplay($gradeValue, $gradeLetter);
+                    $data['grade']['content'] = $this->formatGradeDisplay($gradeval, $grade_grade->grade_item);
                     $data['grade']['placeholder'] = $placeholder;
                     $data['grade']['inputName'] = $inputName;
                 }
@@ -598,30 +580,26 @@ class grade_report_forecast extends grade_report {
     /**
      * Formats a given grade value and letter for display in grade column of report
      * 
-     * @param  string $gradeValue
-     * @param  string $gradeLetter
+     * @param  string      $gradeValue
+     * @param  grade_item  $gradeItem
      * @return string
      */
-    private function formatGradeDisplay($gradeValue, $gradeLetter) {
-        $output = $gradeValue;
+    private function formatGradeDisplay($gradeValue, $gradeItem) {
+        if (is_null($gradeValue)) {
+            return '-';
+        }
 
-        if ($this->valueIsGraded($gradeValue)) {
-            if ($this->showlettergrade) {
-                $output .= ' (' . $gradeLetter . ')';
-            }
+        $output = grade_format_gradevalue($gradeValue, $gradeItem, true, GRADE_DISPLAY_TYPE_REAL, null);
+
+        if ($this->showgradepercentage) {
+            $output .= '  (' . grade_format_gradevalue($gradeValue, $gradeItem, true, GRADE_DISPLAY_TYPE_PERCENTAGE, null) . ')';
+        }
+
+        if ($this->showlettergrade) {
+            $output .= '  (' . grade_format_gradevalue($gradeValue, $gradeItem, true, GRADE_DISPLAY_TYPE_LETTER, null) . ')';
         }
 
         return $output;
-    }
-
-    /**
-     * Reports whether or not a grade value has a real value
-     * 
-     * @param  string $gradeValue
-     * @return bool
-     */
-    private function valueIsGraded($gradeValue) {
-        return ($gradeValue !== '-') ? true : false;
     }
 
     /**
@@ -660,11 +638,8 @@ class grade_report_forecast extends grade_report {
         // create new response
         $response = $this->newResponse();
 
-        // add category grades to response
-        $response = $this->addCategoryGradesToResponse($response);
-
-        // add course grade to response
-        $response = $this->addCourseGradeToResponse($response);
+        // add grades to response
+        $response = $this->addGradesToResponse($response);
         
         return $response;
     }
@@ -682,60 +657,97 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
-     * Adds to the response all category and corresponding grade information
+     * Adds grade information (both course and category level) to the response
      * 
      * @param  array  $response
      * @return array  $response
      */
-    private function addCategoryGradesToResponse($response) {
+    private function addGradesToResponse($response) {
         // get this course's "category" grade items
         $category_grade_items = $this->getCourseCategoryGradeItems();
 
+        $categoryGradeItems = [];
+
         foreach ($category_grade_items as $category_grade_item_id => $category_grade_item) {
+            $categoryGradeItems[] = $category_grade_item;
+
             // create a forecast_category from this category_grade_item
             $forecast_category = forecast_category::findByGradeItemId($category_grade_item_id);
 
             // get all nested grade_items for this category_grade_item
-            $items = $forecast_category->getNestedGradeItems();
+            $gradeItems = $forecast_category->getNestedGradeItems();
 
-            $values = [];
+            $gradeValues = [];
 
-            foreach ($items as $nested_item_id => $nested_item) {
+            foreach ($gradeItems as $nested_item_id => $nested_item) {
                 // if a grade has been input for this item, include it in the results
                 if (array_key_exists($nested_item_id, $this->inputData)) {
-                    $values[$nested_item_id] = $this->inputData[$nested_item_id];
+                    $gradeValues[$nested_item_id] = $this->inputData[$nested_item_id];
                 } else {
                     // otherwise, try to get a grade for this user
                     $grade = $nested_item->get_grade($this->user->id);
 
                     // if no grade, remove the item from the calculation, otherwise inclue it in the results
                     if (is_null($grade->finalgrade)) {
-                        unset($items[$nested_item_id]);
+                        unset($gradeItems[$nested_item_id]);
                     } else {
-                        $values[$nested_item_id] = $grade->finalgrade;
+                        $gradeValues[$nested_item_id] = $grade->finalgrade;
                     }
                 }
             }
 
-            // assign aggregated grade value to item
-            $response['cats'][$category_grade_item_id] = $forecast_category->getForecastedGrade($items, $values, 'number');
+            // get the forecasted (aggregated) category grade total value for these items and values
+            $categoryTotalValue = $forecast_category->getForecastedValue($gradeItems, $gradeValues);
+
+            // include this value for the final course aggregation
+            $categoryGradeValues[] = $categoryTotalValue;
+
+            // assign category grade total value to response array
+            $response['cats'][$category_grade_item_id] = $this->formatCategoryGradeItemDisplay($categoryTotalValue, $category_grade_item);
         }
+
+        // get this course's "course" grade item
+        $course_grade_item = $this->getCourseGradeItem();  
+
+        // create a forecast_category from this course_grade_item
+        $forecast_category = forecast_category::findByGradeItemId($course_grade_item->id);
+
+        // get the forecasted (aggregated) course grade total value for these items and values
+        $response['course'] = $forecast_category->getForecastedValue($categoryGradeItems, $categoryGradeValues);
 
         return $response;
     }
 
+    private function formatCategoryGradeItemDisplay($value, $gradeItem) {
+        $decimalPlaces = $gradeItem->get_decimals();
+
+        $percentage = $this->formatPercentage($value * 100, $decimalPlaces);
+
+        $points = $this->formatNumber($value * $gradeItem->grademax, $decimalPlaces);
+
+        // $letter = grade_format_gradevalue_letter($value, $gradeItem);
+
+        return 'percentage: ' . $percentage . '<br>points: ' . $points;
+    }
+
     /**
-     * Adds to the response all course grade information
+     * Helper for displaying a percentage including 4 decimal places
      * 
-     * @param  array  $response
-     * @return array  $response
+     * @param  mixed $value
+     * @return string
      */
-    private function addCourseGradeToResponse($response) {
-        $course_grade_item = $this->getCourseGradeItem();  
+    private function formatPercentage($value, $decimals) {
+        return $this->formatNumber($value, $decimals) . '%';
+    }
 
-        $response['course'] = 'course total';
-
-        return $response;
+    /**
+    * Helper for rounding a number to 4 places
+    * 
+    * @param  mixed  $value
+    * @return decimal
+    */
+    private function formatNumber($value, $decimals) {
+        return number_format($value, $decimals);
     }
 
     /**
@@ -814,6 +826,12 @@ function grade_report_forecast_settings_definition(&$mform) {
                       1 => get_string('show'));
 
     if (empty($CFG->grade_report_forecast_showlettergrade)) {
+        $options[-1] = get_string('defaultprev', 'grades', $options[0]);
+    } else {
+        $options[-1] = get_string('defaultprev', 'grades', $options[1]);
+    }
+
+    if (empty($CFG->grade_report_forecast_showgradepercentage)) {
         $options[-1] = get_string('defaultprev', 'grades', $options[0]);
     } else {
         $options[-1] = get_string('defaultprev', 'grades', $options[1]);
