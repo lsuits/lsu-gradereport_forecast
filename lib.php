@@ -721,13 +721,22 @@ class grade_report_forecast extends grade_report {
     private function formatCategoryGradeItemDisplay($value, $gradeItem) {
         $decimalPlaces = $gradeItem->get_decimals();
 
-        $percentage = $this->formatPercentage($value * 100, $decimalPlaces);
-
         $points = $this->formatNumber($value * $gradeItem->grademax, $decimalPlaces);
 
-        $letter = $this->formatLetter($value);
+        // show total (points) by default
+        $output = $points;
 
-        return 'percentage: ' . $percentage . '<br>points: ' . $points . '<br>letter: ' . $letter;
+        if ($this->showlettergrade) {
+            $letter = $this->formatLetter($value);
+            $output .= '  -  ' . $letter;
+        }
+
+        if ($this->showgradepercentage) {
+            $percentage = $this->formatPercentage($value * 100, $decimalPlaces);
+            $output .= '  -  ' . $percentage;
+        }
+
+        return $output;
     }
 
     /**
