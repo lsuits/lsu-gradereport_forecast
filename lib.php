@@ -725,13 +725,13 @@ class grade_report_forecast extends grade_report {
 
         $points = $this->formatNumber($value * $gradeItem->grademax, $decimalPlaces);
 
-        // $letter = grade_format_gradevalue_letter($value, $gradeItem);
+        $letter = $this->formatLetter($value);
 
-        return 'percentage: ' . $percentage . '<br>points: ' . $points;
+        return 'percentage: ' . $percentage . '<br>points: ' . $points . '<br>letter: ' . $letter;
     }
 
     /**
-     * Helper for displaying a percentage including 4 decimal places
+     * Helper for displaying a percentage to the configured amount of decimal places
      * 
      * @param  mixed $value
      * @return string
@@ -741,13 +741,47 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
-    * Helper for rounding a number to 4 places
+    * Helper for rounding a number to the configured amount of decimal places
     * 
     * @param  mixed  $value
     * @return decimal
     */
     private function formatNumber($value, $decimals) {
         return number_format($value, $decimals);
+    }
+
+    /**
+     * Helper for displaying a letter grade given a specific value
+     *
+     * Note: This is from Moodle core (minus value bounds)
+     * 
+     * @param  mixed  $value
+     * @return string
+     */
+    private function formatLetter($value) {
+        global $CFG;
+        $context = context_course::instance($this->courseid);
+
+        // get this course's letters
+        $letters = grade_get_letters($context);
+
+        // check for legacy stuff...
+        $gradebookcalculationsfreeze = 'gradebook_calculations_freeze_' . $this->courseid;
+
+        // find and return the proper letter grade
+        foreach ($letters as $boundary => $letter) {
+            if ( ! (property_exists($CFG, $gradebookcalculationsfreeze) && (int)$CFG->{$gradebookcalculationsfreeze} <= 20160518)) {
+                // The boundary is a percentage out of 100 so use 0 as the min and 100 as the max.
+                $boundary = grade_grade::standardise_score($boundary, 0, 100, 0, 100);
+            }
+
+            if ($value * 100 >= $boundary) {
+                return format_string($letter);
+            }
+        }
+        
+        // default letter
+        return '-';
     }
 
     /**
@@ -910,42 +944,7 @@ function grade_report_forecast_profilereport($course, $user, $viewasuser = false
  * @param bool $iscurrentuser
  * @param stdClass $course Course object
  */
-function gradereport_forecast_myprofile_navigation(core_user\output\myprofile\tree $tree, $user, $iscurrentuser, $course) {
-    global $CFG, $USER;
-    if (empty($course)) {
-        // We want to display these reports under the site context.
-        $course = get_fast_modinfo(SITEID)->get_course();
-    }
-    $usercontext = context_user::instance($user->id);
-    $anyreport = has_capability('moodle/user:viewuseractivitiesreport', $usercontext);
-
-    // Start capability checks.
-    if ($anyreport || ($course->showreports && $user->id == $USER->id)) {
-        // Add grade hardcoded grade report if necessary.
-        $gradeaccess = false;
-        $coursecontext = context_course::instance($course->id);
-        if (has_capability('moodle/grade:viewall', $coursecontext)) {
-            // Can view all course grades.
-            $gradeaccess = true;
-        } else if ($course->showgrades) {
-            if ($iscurrentuser && has_capability('moodle/grade:view', $coursecontext)) {
-                // Can view own grades.
-                $gradeaccess = true;
-            } else if (has_capability('moodle/grade:viewall', $usercontext)) {
-                // Can view grades of this user - parent most probably.
-                $gradeaccess = true;
-            } else if ($anyreport) {
-                // Can view grades of this user - parent most probably.
-                $gradeaccess = true;
-            }
-        }
-        if ($gradeaccess) {
-            $url = new moodle_url('/course/user.php', array('mode' => 'grade', 'id' => $course->id, 'user' => $user->id));
-            $node = new core_user\output\myprofile\node('reports', 'grade', get_string('grade'), null, $url);
-            $tree->add_node($node);
-        }
-    }
-}
+function gradereport_forecast_myprofile_navigation(core_user\output\myprofile\tree $tree, $user, $iscurrentuser, $course) {}
 
 /**
  * Returns an array of grade item inputs from POST data in form: (grade_item_id as int) => (input value as string), or empty array if null
