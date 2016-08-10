@@ -867,12 +867,17 @@ class grade_report_forecast extends grade_report {
             // if this is a category, try to get the value from the master array, otherwise, give it a zero and remove
             if ($gradeItem->itemtype == 'category') {
                 if ( ! array_key_exists($gradeItemId, $this->itemAggregates)) {
-                    // remove the item from the item container
-                    unset($gradeItems[$gradeItemId]);
+                    // remove grade, or set to zero depending on selected option
+                    if ($removeUngradedItems) {
+                        // remove the item from the item container
+                        unset($gradeItems[$gradeItemId]);
+                    } else {
+                        // set this items grade to zero
+                        $values[$gradeItemId] = 0;   
+                    }
                 } else {
                     // otherwise, include the grade in the grade value container
                     $values[$gradeItemId] = $this->itemAggregates[$gradeItemId]['calculatedValue'];
-                    // $values[$gradeItemId] = 23; BLEH
                 }
             
             // otherwise, this is an item, if a "forecasted" grade has been input for this item, include it in the container
