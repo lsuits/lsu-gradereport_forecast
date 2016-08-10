@@ -45,14 +45,22 @@ $PAGE->set_context($context);
 
 // get all grade item input (missing grade items only)
 $gradeItemInput = getGradeItemInput();
+// $gradeItemInput = ['116' => 90, '117' => 88];
 
 // get report instance with injected grade item input
 $report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, $gradeItemInput);
 
-// return the json encoded response
-// echo json_encode($report->getCalculatedTotalsResponse());
+/*
+ Production here...
+ */
 
-// testing...
-// echo '<pre>';
-echo json_encode($report->getCalculatedTotalsResponse());
-// echo '</pre>';
+// return the json encoded response
+// echo $report->getJsonResponse();
+
+/*
+ Testing here...
+ */
+
+echo '<pre>';
+echo $report->getJsonResponse();
+echo '</pre>';

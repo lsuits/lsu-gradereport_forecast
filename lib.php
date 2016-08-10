@@ -24,7 +24,6 @@
 
 require_once($CFG->dirroot . '/grade/report/lib.php');
 require_once($CFG->libdir.'/tablelib.php');
-require_once(__DIR__ . '/classes/forecast_category.php');
 
 //showhiddenitems values
 define("GRADE_REPORT_FORECAST_HIDE_HIDDEN", 0);
@@ -122,6 +121,8 @@ class grade_report_forecast extends grade_report {
     public $courseid;
 
     public $inputData;
+    public $itemAggregates;
+    public $response;
 
     /**
      * The modinfo object to be used.
@@ -187,7 +188,8 @@ class grade_report_forecast extends grade_report {
         }
         $this->rangedecimals = grade_get_setting($this->courseid, 'report_forecast_rangedecimals', $defaultrangedecimals);
 
-        $this->switch = grade_get_setting($this->courseid, 'aggregationposition', $CFG->grade_aggregationposition);
+        // hard set this to true as we need the gtree to be consistent
+        $this->switch = true;
 
         // Grab the grade_tree for this course
         $this->gtree = new grade_tree($this->courseid, false, $this->switch, null, !$CFG->enableoutcomes);
@@ -222,6 +224,10 @@ class grade_report_forecast extends grade_report {
         $this->courseid = $courseid;
 
         $this->inputData = $inputData;
+
+        $this->itemAggregates = [];
+
+        $this->response = $this->newResponse();
 
         // no groups on this report - rank is from all course users
         $this->setup_table();
@@ -628,24 +634,35 @@ class grade_report_forecast extends grade_report {
         $event->trigger();
     }
 
+    ////////////////////////////////////////
+    ///                                  ///
+    ///  BEGIN THE REPORT CUSTOMIZATION  ///
+    ///                                  ///
+    ////////////////////////////////////////
+
     /**
-     * Returns an array of this user's forecasted category and course grades for this course considering any input values
+     * Returns a JSON array of this user's forecasted category and course grades for this course considering any input values
      * 
-     * @return array
+     * @return JSON array
      */
-    public function getCalculatedTotalsResponse() {
-
-        // create new response
-        $response = $this->newResponse();
-
+    public function getJsonResponse() {
         // add grades to response
-        $response = $this->addGradesToResponse($response);
+        $this->addGradesToResponse();
         
-        return $response;
+        return $this->formattedJsonResponse();
     }
 
     /**
-     * Returns an empty response array
+     * Returns a formatted JSON array of the report's current "response"
+     * 
+     * @return JSON array
+     */
+    private function formattedJsonResponse() {
+        return json_encode($this->response);
+    }
+
+    /**
+     * Returns a default "response" array
      * 
      * @return array
      */
@@ -657,96 +674,336 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
-     * Adds grade information (both course and category level) to the response
+     * Adds forecasted grade information to the "response"
      * 
-     * @param  array  $response
-     * @return array  $response
+     * @return void
      */
-    private function addGradesToResponse($response) {
-        // get this course's "category" grade items
-        $category_grade_items = $this->getCourseCategoryGradeItems();
+    private function addGradesToResponse() {
+        // get the inverted gtree "levels" array
+        $levels = array_reverse($this->gtree->levels, true);
 
-        $categoryGradeItems = [];
+        $courseData = [];
 
-        foreach ($category_grade_items as $category_grade_item_id => $category_grade_item) {
-            $categoryGradeItems[] = $category_grade_item;
+        // iterate through each of the course's levels, aggregating "level"-level categories along the way
+        // index is gtree "level" number index (0 as course level), data is the gtree "level" array
+        foreach ($levels as $levelIndex => $levelItems) {
 
-            // create a forecast_category from this category_grade_item
-            $forecast_category = forecast_category::findByGradeItemId($category_grade_item_id);
+            // iterate through the level items (which can be of type: item, categoryitem, category, courseitem)
+            foreach ($levelItems as $key => $levelItem) {
+                // pluck the gtree element
+                $element = $this->getLevelItemElement($levelItem);
 
-            // get all nested grade_items for this category_grade_item
-            $gradeItems = $forecast_category->getNestedGradeItems();
+                // act only on "category" level items, which can include courses and any sub-categories
+                if ($levelItem['type'] == 'category') {
+                    // extract the grade_category from this element
+                    $category = $this->getElementObject($element);
 
-            $gradeValues = [];
-
-            foreach ($gradeItems as $nested_item_id => $nested_item) {
-                // if a grade has been input for this item, include it in the results
-                if (array_key_exists($nested_item_id, $this->inputData)) {
-                    $gradeValues[$nested_item_id] = $this->inputData[$nested_item_id];
-                } else {
-                    // otherwise, try to get a grade for this user
-                    $grade = $nested_item->get_grade($this->user->id);
-
-                    // if no grade, remove the item from the calculation, otherwise inclue it in the results
-                    if (is_null($grade->finalgrade)) {
-                        unset($gradeItems[$nested_item_id]);
-                    } else {
-                        $gradeValues[$nested_item_id] = $grade->finalgrade;
+                    // if this is a master level "course" category, store its data for final aggregation
+                    if ($this->isCourseCategory($category)) {
+                        $courseData = [
+                            'category' => $category,
+                            'element' => $element,
+                        ];
+                        continue;
                     }
+
+                    // fetch the grade_item representation of this grade_category
+                    // TODO: get grade_item from element children "categoryitem" ???
+                    // TODO: cache this result and check for in the following processes
+                    $categoryItem = $this->getGradeItemFromCategory($category);
+
+                    // if this item has already been aggregated, move on
+                    if ($this->itemIdAlreadyAggregated($categoryItem->id))
+                        return;
+
+                    // get all grade_items (only) that will be considered in the category aggregation calculation
+                    $categoryGradeItems = $this->getElementChildren($element, ['item', 'category'], true);
+
+                    // get all grade values belonging to the given grade items
+                    $categoryGradeValues = $this->getGradeItemValuesArray($categoryGradeItems, true);
+
+                    // get the aggregate of this category using the given grade items and values
+                    $aggregate = $this->getCategoryGradeAggregate($category, $categoryGradeItems, $categoryGradeValues, true);
+
+                    // assign category grade total value to response array
+                    $this->addCategoryItemAggregateToResponse($categoryItem, $aggregate);
                 }
             }
-
-            // get the forecasted (aggregated) category grade total value for these items and values
-            $categoryTotalValue = $forecast_category->getForecastedValue($gradeItems, $gradeValues);
-
-            // include this value for the final course aggregation
-            $categoryGradeValues[] = $categoryTotalValue;
-
-            // assign category grade total value to response array
-            $response['cats'][$category_grade_item_id] = $this->formatCategoryGradeItemDisplay($categoryTotalValue, $category_grade_item);
         }
 
-        // get this course's "course" grade item
-        $course_grade_item = $this->getCourseGradeItem();  
+        if ( ! empty($courseData)) {
+            $courseItem = $this->getGradeItemFromCategory($courseData['category'], 'course');
 
-        // create a forecast_category from this course_grade_item
-        $forecast_category = forecast_category::findByGradeItemId($course_grade_item->id);
+            // get all grade_items (only) that will be considered in the course aggregation calculation
+            $courseGradeItems = $this->getElementChildren($courseData['element'], ['item', 'category'], true);
 
-        // get the forecasted (aggregated) course grade total value for these items and values
-        $response['course'] = $forecast_category->getForecastedValue($categoryGradeItems, $categoryGradeValues);
+            // get all grade values belonging to the given grade items
+            $courseGradeValues = $this->getGradeItemValuesArray($courseGradeItems, true);
 
-        return $response;
-    }
+            // get the aggregate of this course using the given grade items and values
+            $aggregate = $this->getCategoryGradeAggregate($courseData['category'], $categoryGradeItems, $categoryGradeValues, true);
 
-    private function formatCategoryGradeItemDisplay($value, $gradeItem) {
-        $decimalPlaces = $gradeItem->get_decimals();
-
-        $points = $this->formatNumber($value * $gradeItem->grademax, $decimalPlaces);
-
-        // show total (points) by default
-        $output = $points;
-
-        if ($this->showlettergrade) {
-            $letter = $this->formatLetter($value);
-            $output .= '  -  ' . $letter;
+            $this->addCourseItemAggregateToResponse($courseItem, $aggregate);
         }
-
-        if ($this->showgradepercentage) {
-            $percentage = $this->formatPercentage($value * 100, $decimalPlaces);
-            $output .= '  -  ' . $percentage;
-        }
-
-        return $output;
     }
 
     /**
-     * Helper for displaying a percentage to the configured amount of decimal places
+     * Helper function for retrieving a specific grade_tree "level" item
      * 
-     * @param  mixed $value
+     * @param  array  $levelItem  a gtree "level" item
+     * @return array  $element  a gtree "element"
+     */
+    private function getLevelItemElement($levelItem) {
+        $element = $this->gtree->locate_element($levelItem['eid']);
+
+        return $element;
+    }
+
+    /**
+     * Helper function for retrieving the "object" from a given element
+     * 
+     * @param  array  $element  a gtree "element"
+     * @return object (grade_category)
+     */
+    private function getElementObject($element) {
+        if ( ! array_key_exists('object', $element)) {
+            return false;
+        }
+
+        return $element['object'];
+    }
+
+    /**
+     * Reports whether or not this grade category is the main course-level category
+     * 
+     * @param  grade_category  $category
+     * @return boolean
+     */
+    private function isCourseCategory($category) {
+        return (is_null($category->parent)) ? true : false;
+    }
+
+    /**
+     * Reports whether or not this grade item id already exists in the itemAggregates array
+     * 
+     * @param  int  $itemId
+     * @return boolean
+     */
+    private function itemIdAlreadyAggregated($itemId) {
+        return array_key_exists($itemId, $this->itemAggregates);
+    }
+
+    /**
+     * Helper function for retrieving the "object" from a given element
+     * 
+     * @param  array  $element  a gtree "element"
+     * @param  array  $types  a list of types of element children to be included (item|courseitem|category|categoryitem)
+     * @param  boolean  $itemsOnly  if true, will add only children "grade_item" object to results
+     * @return array  child object id => object
+     */
+    private function getElementChildren($element, $types = array(), $itemsOnly = true) {
+        if ( ! array_key_exists('children', $element)) {
+            return false;
+        }
+
+        $elementChildren = $element['children'];
+
+        $results = [];
+
+        // iterate through all children
+        foreach ($elementChildren as $key => $child) {
+            // add each wanted type to results array as: object id => object
+            if (in_array($child['type'], $types)) {
+                $childObject = $child['object'];                
+
+                if ($child['type'] =='category' and $itemsOnly) {
+                    // get this category's grade_item
+                    $gradeItem = $this->getGradeItemFromCategory($childObject);
+
+                    $results[$gradeItem->id] = $gradeItem;
+                } else {
+                    $results[$childObject->id] = $childObject;
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Returns a given grade_category's grade_item object of a specified type
+     *
+     * @param  grade_category  $gradeCategory
+     * @param  string  $itemType  category|course
+     * @return grade_item
+     */
+    private function getGradeItemFromCategory($gradeCategory, $itemType = 'category') {
+        $gradeItem = grade_item::fetch([
+            'itemtype' => $itemType,
+            'iteminstance' => $gradeCategory->id,
+        ]);
+
+        if ( ! $gradeItem or ! property_exists($gradeItem, 'id')) {
+            return false;
+        }
+
+        return $gradeItem;
+    }
+
+    /**
+     * Returns an array of grade_item grade values by reconciling calculated category values, input data, and this user's actual grades
+     *
+     * Optionally removes appropriate ungraded, uninput grade_items from the given list of grade_items
+     * 
+     * @param  array  $gradeItems
+     * @param  bool  $removeUngradedItems  whether or not to remove an ungraded, uninput grade item from the given list of grade_items
+     * @return [type]                     [description]
+     */
+    private function getGradeItemValuesArray(&$gradeItems, $removeUngradedItems = true) {
+        $values = [];
+
+        foreach ($gradeItems as $gradeItemId => $gradeItem) {
+            // if this is a category, try to get the value from the master array, otherwise, give it a zero and remove
+            if ($gradeItem->itemtype == 'category') {
+                if ( ! array_key_exists($gradeItemId, $this->itemAggregates)) {
+                    // remove the item from the item container
+                    unset($gradeItems[$gradeItemId]);
+                    continue;
+                } else {
+                    // otherwise, include the grade in the grade value container
+                    $values[$gradeItemId] = $this->itemAggregates[$gradeItemId]['calculatedValue'];
+                    // $values[$gradeItemId] = 23; BLEH
+                }
+            
+            // otherwise, this is an item, if a "forecasted" grade has been input for this item, include it in the container
+            } elseif (array_key_exists($gradeItemId, $this->inputData)) {
+                $values[$gradeItemId] = $this->inputData[$gradeItemId];
+            
+            // otherwise, try to get a grade for this grade_item for this user
+            } else {
+                $grade = $gradeItem->get_grade($this->user->id);
+
+                // if no user grade exists, and option selected
+                if (is_null($grade->finalgrade) and $removeUngradedItems) {
+                    // remove the item from the item container
+                    unset($gradeItems[$gradeItemId]);
+                    continue;
+                } else {
+                    // otherwise, include the grade in the grade value container
+                    $values[$gradeItemId] = $grade->finalgrade;
+                }
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * Returns a calculated grade_category aggregate given grade_items and their corresponding values to consider
+     * 
+     * @param  grade_category  $gradeCategory
+     * @param  array  $gradeItems  grade_item_id => grade_item
+     * @param  array  $gradeItemValues  grade_item_id => value
+     * @param  bool  $normalizeValues  whether or not to "normalize" grade values before calculating
+     * @return decimal  (from 0.0000 to 1.0000)
+     */
+    private function getCategoryGradeAggregate($gradeCategory, $gradeItems, $gradeItemValues, $normalizeValues = true) {
+        $gradeItemValues = ($normalizeValues) ? $this->normalizeGradeValues($gradeItems, $gradeItemValues) : $gradeItemValues;
+
+        $aggregate = $gradeCategory->aggregate_values_and_adjust_bounds($gradeItemValues, $gradeItems);
+
+        return ( ! is_null($aggregate)) ? $aggregate : false;
+    }
+    /**
+     * Returns an array of normalized grade values by referencing their corresponding grade_item max values
+     * 
+     * @param  array  $gradeItems  grade_item_id => grade_item
+     * @param  array  $gradeValues  grade_item_id => value
+     * @return array
+     */
+    private function normalizeGradeValues($gradeItems , $gradeValues) {
+        $normalizedValues = [];
+        
+        foreach ($gradeValues as $id => $value) {
+            $normalizedValues[$id] = $value / ($gradeItems[$id]->grademax - $gradeItems[$id]->grademin);
+        }
+        
+        return $normalizedValues;
+    }
+
+    /**
+     * Adds a given "category" grade item's aggregate display to the response, and stores the aggregate by item as key
+     * 
+     * @param grade_item  $gradeItem  a category's grade_item instance
+     * @param array  $aggregate [grade|grademin|grademax]
+     * @return void
+     */
+    private function addCategoryItemAggregateToResponse($gradeItem, $aggregate) {
+        $this->response['cats'][$gradeItem->id] = $this->formatItemAggregateDisplay($gradeItem, $aggregate);
+
+        // store this value for future aggregations
+        $this->storeItemAggregate($gradeItem->id, $aggregate);
+    }
+
+    /**
+     * Adds a given "course" grade item's aggregate display to the response
+     * 
+     * @param grade_item  $gradeItem  a course's grade_item instance
+     * @param array  $aggregate [grade|grademin|grademax]
+     * @return void
+     */
+    private function addCourseItemAggregateToResponse($gradeItem, $aggregate) {
+        $this->response['course'] = $this->formatItemAggregateDisplay($gradeItem, $aggregate);
+    }
+
+    /**
+     * Stores an aggregate array for a given grade_item id
+     * 
+     * @param  int  $itemId  a grade_item id
+     * @param  array  $aggregate [grade|grademin|grademax]
+     * @return void
+     */
+    private function storeItemAggregate($itemId, $aggregate) {
+        $this->itemAggregates[$itemId] = [
+            'grade' => $aggregate['grade'],
+            'grademin' => $aggregate['grademin'],
+            'grademax' => $aggregate['grademax'],
+            'calculatedValue' => ($aggregate['grade'] * $aggregate['grademax'])
+        ];
+    }
+
+    /**
+     * Returns a formatted display of a given grade item and aggregate
+     * 
+     * @param  grade_item  $gradeItem
+     * @param  array  $aggregate [grade|grademin|grademax]
      * @return string
      */
-    private function formatPercentage($value, $decimals) {
-        return $this->formatNumber($value, $decimals) . '%';
+    private function formatItemAggregateDisplay($gradeItem, $aggregate) {
+        $value = $aggregate['grade'];
+
+        // get decimal display config
+        $decimalPlaces = $gradeItem->get_decimals();
+
+        // calculate the total "points" for this category
+        $points = $this->formatNumber($value * $gradeItem->grademax, $decimalPlaces);
+
+        // show total (points) by default
+        $output = $points . ' pts';
+
+        // optionally show percentage
+        if ($this->showgradepercentage) {
+            $percentage = $this->formatPercentage($value * 100, $decimalPlaces);
+            $output .= '  |  ' . $percentage;
+        }
+
+        // optionally show letter grade
+        if ($this->showlettergrade) {
+            $letter = $this->formatLetter($value);
+            $output .= '  |  ' . $letter;
+        }
+
+        return $output;
     }
 
     /**
@@ -794,69 +1051,15 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
-     * Fetches all "category" grade_items for this course
+     * Helper for displaying a percentage to the configured amount of decimal places
      * 
-     * @return array  grade_item_id => grade_item
+     * @param  mixed $value
+     * @return string
      */
-    private function getCourseCategoryGradeItems() {
-        $category_grade_items = grade_item::fetch_all([
-            'courseid' => $this->courseid,
-            'itemtype' => 'category'
-        ]);
-
-        return $category_grade_items;
+    private function formatPercentage($value, $decimals) {
+        return $this->formatNumber($value, $decimals) . '%';
     }
-
-    /**
-     * Fetches the "course" grade_item for this course
-     * 
-     * @return grade_item
-     */
-    private function getCourseGradeItem() {
-        $course_grade_item = grade_item::fetch([
-            'courseid' => $this->courseid,
-            'itemtype' => 'course'
-        ]);
-
-        return $course_grade_item;
-    }
-
-    /**
-     * Fetches all of this course's categories, defaults to "flattened" array (unused)
-     * 
-     * @param  boolean $flattened
-     * @return array
-     */
-    private function getCourseCategories($flattened = false) {
-        $course_grade_categories = grade_category::fetch_all(array('courseid' => $this->courseid));
-        
-        if ( ! $flattened)
-            return $course_grade_categories;
-
-        $flatcattree = array();
-        
-        foreach ($course_grade_categories as $cat) {
-            if (!isset($flatcattree[$cat->depth])) {
-                $flatcattree[$cat->depth] = array();
-            }
-            $flatcattree[$cat->depth][] = $cat;
-        }
-
-        krsort($flatcattree);
-
-        return $flatcattree;
-    }
-
-    /**
-     * Fetches the course grade tree (unused)
-     * 
-     * @return array
-     */
-    private function getCourseGradeTree() {
-        $course_tree = grade_category::fetch_course_tree($this->courseid, true);
-
-        return $course_tree;
-    }
+    
 }
 
 // necessary for grade report...
