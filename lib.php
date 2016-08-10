@@ -720,7 +720,7 @@ class grade_report_forecast extends grade_report {
                     $categoryGradeItems = $this->getElementChildren($element, ['item', 'category'], true);
 
                     // get all grade values belonging to the given grade items, removing ungraded/uninput items from calculation
-                    $categoryGradeValues = $this->getGradeItemValuesArray($categoryGradeItems, true);
+                    $categoryGradeValues = $this->getCategoryGradeItemValuesArray($category, $categoryGradeItems, true);
 
                     // get the aggregate of this category using the given grade items and values
                     $aggregate = $this->getCategoryGradeAggregate($category, $categoryGradeItems, $categoryGradeValues, true);
@@ -738,7 +738,7 @@ class grade_report_forecast extends grade_report {
             $courseGradeItems = $this->getElementChildren($courseData['element'], ['item', 'category'], true);
 
             // get all grade values belonging to the given grade items, setting ungraded/uninput items to zero
-            $courseGradeValues = $this->getGradeItemValuesArray($courseGradeItems);
+            $courseGradeValues = $this->getCategoryGradeItemValuesArray($courseData['category'], $courseGradeItems);
 
             // get the aggregate of this course using the given grade items and values
             $aggregate = $this->getCategoryGradeAggregate($courseData['category'], $courseGradeItems, $courseGradeValues, true);
@@ -852,15 +852,17 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
-     * Returns an array of grade_item grade values by reconciling calculated category values, input data, and this user's actual grades
+     * Returns an array of grade_item grade values by reconciling calculated category values, input data, 
+     * and this user's actual grades, and then applying a given parent grade_category's rules
      *
      * Sets ungraded/uninput item grades to zero (default), or optionally removes them from the given grade_items
      * 
+     * @param  grade_category  $gradeCategory
      * @param  array  $gradeItems
      * @param  bool  $removeUngradedItems  whether or not to remove an ungraded, uninput grade item from the given list of grade_items
      * @return array  (as: grade_item id => grade value)
      */
-    private function getGradeItemValuesArray(&$gradeItems, $removeUngradedItems = false) {
+    private function getCategoryGradeItemValuesArray($gradeCategory, &$gradeItems, $removeUngradedItems = false) {
         $values = [];
 
         foreach ($gradeItems as $gradeItemId => $gradeItem) {
@@ -903,6 +905,9 @@ class grade_report_forecast extends grade_report {
                 }
             }
         }
+
+        // apply any special category rules (drop lowest/highest) to the remaining list of values
+        $gradeCategory->apply_limit_rules($values, $gradeItems);
 
         return $values;
     }
