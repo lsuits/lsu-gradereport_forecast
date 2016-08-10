@@ -719,7 +719,7 @@ class grade_report_forecast extends grade_report {
                     // get all grade_items (only) that will be considered in the category aggregation calculation
                     $categoryGradeItems = $this->getElementChildren($element, ['item', 'category'], true);
 
-                    // get all grade values belonging to the given grade items
+                    // get all grade values belonging to the given grade items, removing ungraded/uninput items from calculation
                     $categoryGradeValues = $this->getGradeItemValuesArray($categoryGradeItems, true);
 
                     // get the aggregate of this category using the given grade items and values
@@ -737,12 +737,13 @@ class grade_report_forecast extends grade_report {
             // get all grade_items (only) that will be considered in the course aggregation calculation
             $courseGradeItems = $this->getElementChildren($courseData['element'], ['item', 'category'], true);
 
-            // get all grade values belonging to the given grade items
-            $courseGradeValues = $this->getGradeItemValuesArray($courseGradeItems, true);
+            // get all grade values belonging to the given grade items, setting ungraded/uninput items to zero
+            $courseGradeValues = $this->getGradeItemValuesArray($courseGradeItems);
 
             // get the aggregate of this course using the given grade items and values
-            $aggregate = $this->getCategoryGradeAggregate($courseData['category'], $categoryGradeItems, $categoryGradeValues, true);
+            $aggregate = $this->getCategoryGradeAggregate($courseData['category'], $courseGradeItems, $courseGradeValues, true);
 
+            // assign course grade total value to response array
             $this->addCourseItemAggregateToResponse($courseItem, $aggregate);
         }
     }
@@ -853,13 +854,13 @@ class grade_report_forecast extends grade_report {
     /**
      * Returns an array of grade_item grade values by reconciling calculated category values, input data, and this user's actual grades
      *
-     * Optionally removes appropriate ungraded, uninput grade_items from the given list of grade_items
+     * Sets ungraded/uninput item grades to zero (default), or optionally removes them from the given grade_items
      * 
      * @param  array  $gradeItems
      * @param  bool  $removeUngradedItems  whether or not to remove an ungraded, uninput grade item from the given list of grade_items
-     * @return [type]                     [description]
+     * @return array  (as: grade_item id => grade value)
      */
-    private function getGradeItemValuesArray(&$gradeItems, $removeUngradedItems = true) {
+    private function getGradeItemValuesArray(&$gradeItems, $removeUngradedItems = false) {
         $values = [];
 
         foreach ($gradeItems as $gradeItemId => $gradeItem) {
@@ -868,7 +869,6 @@ class grade_report_forecast extends grade_report {
                 if ( ! array_key_exists($gradeItemId, $this->itemAggregates)) {
                     // remove the item from the item container
                     unset($gradeItems[$gradeItemId]);
-                    continue;
                 } else {
                     // otherwise, include the grade in the grade value container
                     $values[$gradeItemId] = $this->itemAggregates[$gradeItemId]['calculatedValue'];
@@ -883,11 +883,15 @@ class grade_report_forecast extends grade_report {
             } else {
                 $grade = $gradeItem->get_grade($this->user->id);
 
-                // if no user grade exists, and option selected
-                if (is_null($grade->finalgrade) and $removeUngradedItems) {
-                    // remove the item from the item container
-                    unset($gradeItems[$gradeItemId]);
-                    continue;
+                if (is_null($grade->finalgrade)) {
+                    // remove grade, or set to zero depending on selected option
+                    if ($removeUngradedItems) {
+                        // remove the item from the item container
+                        unset($gradeItems[$gradeItemId]);
+                    } else {
+                        // set this items grade to zero
+                        $values[$gradeItemId] = 0;   
+                    }
                 } else {
                     // otherwise, include the grade in the grade value container
                     $values[$gradeItemId] = $grade->finalgrade;
@@ -1159,7 +1163,9 @@ function grade_report_forecast_profilereport($course, $user, $viewasuser = false
 function gradereport_forecast_myprofile_navigation(core_user\output\myprofile\tree $tree, $user, $iscurrentuser, $course) {}
 
 /**
- * Returns an array of grade item inputs from POST data in form: (grade_item_id as int) => (input value as string), or empty array if null
+ * Helper function for getting posted grade input data
+ * 
+ * Returns an array of grade item inputs (only input values) from POST data in form: (grade_item_id as int) => (input value as string)
  * 
  * @return array
  */
@@ -1173,8 +1179,9 @@ function getGradeItemInput() {
         // input-gradeitem-
         $itemId = substr($key, 16);
 
-        if ($itemId)
+        if ($itemId) {
             $gradeItemInput[$itemId] = $value;
+        }
     }
 
     return $gradeItemInput;
