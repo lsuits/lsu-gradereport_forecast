@@ -55,12 +55,12 @@ $report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, $g
  */
 
 // return the json encoded response
-// echo $report->getJsonResponse();
+echo $report->getJsonResponse();
 
 /*
  Testing here...
  */
 
-echo '<pre>';
-echo $report->getJsonResponse();
-echo '</pre>';
+// echo '<pre>';
+// echo $report->getJsonResponse();
+// echo '</pre>';
