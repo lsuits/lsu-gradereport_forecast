@@ -44,11 +44,17 @@ $PAGE->set_context($context);
 // begin the report stuff...
 
 // get all grade item input (missing grade items only)
-$gradeItemInput = getGradeItemInput();
+// $gradeItemInput = getGradeItemInput();
 // $gradeItemInput = ['116' => 90, '117' => 88];
 
 // get report instance with injected grade item input
-$report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, $gradeItemInput);
+$report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, $_POST);
+// $report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, [
+//     'input-gradeitem-116' => '90', 
+//     'input-gradeitem-117' => '88',
+//     'input-gradeitem-114' => '',
+//     'input-gradeitem-112' => ''
+// ]);
 
 /*
  Production here...

@@ -62,6 +62,15 @@ function getElementsByType(key) {
 }
 
 /**
+ * Fetches "must make" HTML element from modal table
+ * 
+ * @return object
+ */
+function getMustMakeElement(id) {
+    return $('td[id="' + id + '"]');
+}
+
+/**
  * Determines whether or a given event has left it's element value in an acceptable state
  *
  * Bypasses some old logic that may be pertinent
@@ -290,14 +299,32 @@ function updateCourseTotal(value) {
  * @return void
  */
 function postGradeInputs() {
-    // console.log('fired');
     var inputs = collectFormInput();
 
     $.post('io.php', inputs, function(data) {
         var response = JSON.parse(data);
+        
+        console.log(response.mustMakeArray);
+
+        if (response.showMustMake) {
+            renderMustMakeModal(response.mustMakeArray);
+        }
 
         handleGradeInputResponse(response);
     });
+}
+
+/**
+ * Populates "must make" modal table and then shows the modal
+ * 
+ * @return void
+ */
+function renderMustMakeModal(values) {
+    for (var id in values) {
+        getMustMakeElement(id).html(values[id]);
+    }
+
+    $('#mustMakeModal').modal('show');
 }
 
 /**

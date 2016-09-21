@@ -123,6 +123,7 @@ class grade_report_forecast extends grade_report {
     public $inputData;
     public $itemAggregates;
     public $response;
+    public $letters = array(); // (boundary => letter)
 
     /**
      * The modinfo object to be used.
@@ -223,11 +224,13 @@ class grade_report_forecast extends grade_report {
 
         $this->courseid = $courseid;
 
-        $this->inputData = $inputData;
+        $this->inputData = $this->formatRawInputData($inputData);
 
         $this->itemAggregates = [];
 
         $this->response = $this->newResponse();
+
+        $this->letters = grade_get_letters($coursecontext);
 
         // no groups on this report - rank is from all course users
         $this->setup_table();
@@ -435,11 +438,11 @@ class grade_report_forecast extends grade_report {
                     $class .= ' grade-max-' . $grade_grade->grade_item->grademax;
                     $class .= ' grade-min-' . $grade_grade->grade_item->grademin;
                     $placeholder = $grade_grade->grade_item->grademin . ' - ' . $grade_grade->grade_item->grademax;
-                    $inputName = 'input-gradeitem-' . $eid;
+                    $inputName = $this->getGradeItemInputPrefix() . $eid;
                 } elseif ($type == 'categoryitem') {
-                    $class .= ' fcst-cat-' . $eid . ' ';
+                    $class .= ' ' . $this->getForecastCategoryItemPrefix() . $eid . ' ';
                 } elseif ($type == 'courseitem') {
-                    $class .= ' fcst-course-' . $eid . ' ';
+                    $class .= ' ' . $this->getForecastCourseItemPrefix() . $eid . ' ';
                 }
 
                 // Grade and Letter display
@@ -648,8 +651,75 @@ class grade_report_forecast extends grade_report {
     public function getJsonResponse() {
         // add grades to response
         $this->addGradesToResponse();
+
+        // add "must make" data to response
+        $this->addMustMakeToResponse();
         
         return $this->formattedJsonResponse();
+    }
+
+    /**
+     * Returns the HTML for the "must make" modal component
+     * 
+     * @return string
+     */
+    public function getMustMakeModal() {
+        $mustMakeMarkup = '
+            <div class="modal fade" tabindex="-1" role="dialog" id="mustMakeModal">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            <h4 class="modal-title">Must Make</h4>
+                        </div>
+                    
+                        <div class="modal-body">
+                            <p>YOU must make...</p>
+                        </div>';
+
+                    $mustMakeMarkup .= $this->getMustMakeModalTable();
+
+                    $mustMakeMarkup .= '
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary">Save changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>';
+
+        return $mustMakeMarkup;
+    }
+
+    /**
+     * Returns an HTML table of letters and bounds to be embedded into the "must make" modal
+     * 
+     * @return string
+     */
+    private function getMustMakeModalTable() {
+        $modalTable = '<table class="table">';
+
+        foreach ($this->letters as $boundary => $letter) {
+            $modalTable .= '
+                <tr>
+                    <td width="50%">' . $letter . '</td>
+                    <td width="50%" id="' . $this->getMustMakeLetterId($boundary) . '">' . $this->getMustMakeLetterId($boundary) . '</td>
+                </tr>';
+        }
+
+        $modalTable .= '</table>';
+
+        return $modalTable;
+    }
+
+    /**
+     * Converts a letter "boundary" number to an id tag
+     * 
+     * @param  string $boundary
+     * @return string
+     */
+    private function getMustMakeLetterId($boundary) {
+        return 'must-make-letter-id-' . str_replace('.', '-', $boundary);
     }
 
     /**
@@ -670,6 +740,8 @@ class grade_report_forecast extends grade_report {
         return [
             'cats' => [],
             'course' => '',
+            'showMustMake' => false,
+            'mustMakeArray' => [],
         ];
     }
 
@@ -746,6 +818,54 @@ class grade_report_forecast extends grade_report {
             // assign course grade total value to response array
             $this->addCourseItemAggregateToResponse($courseItem, $aggregate);
         }
+    }
+
+    /**
+     * Determines if "must make" modal should be displayed and, if so, adds a flag and data to response
+     * 
+     * @return void
+     */
+    private function addMustMakeToResponse() {
+        $showMustMake = $this->shouldShowMustMake();
+
+        if ($showMustMake) {
+            $this->response['mustMakeArray'] = $this->getMustMakeArray();
+        }
+
+        $this->response['showMustMake'] = $showMustMake;
+    }
+
+    /**
+     * Checks whether "must make" modal should be displayed based off of grade input
+     * 
+     * @return bool
+     */
+    private function shouldShowMustMake() {
+        if ( ! (array_key_exists('totalUngradedItemCount', $this->inputData) and array_key_exists('inputGradeItemCount', $this->inputData))) {
+            return false;
+        }
+
+        return (((int)$this->inputData['totalUngradedItemCount'] - (int)$this->inputData['inputGradeItemCount']) == 1) ? true : false;
+    }
+
+    /**
+     * Builds the "must make" array of values to be displayed in the modal
+     * 
+     * @return array
+     */
+    private function getMustMakeArray() {
+        $mustMakeArray = [];
+        
+        foreach ($this->letters as $boundary => $letter) {
+            // $mustMakeArray[$this->getMustMakeLetterId($boundary)] = rand(1 , 100);
+            $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->getNeededGradeForBoundaryTotal($boundary);
+        }
+
+        return $mustMakeArray;
+    }
+
+    private function getNeededGradeForBoundaryTotal($boundary) {
+        return $boundary - 0.04;
     }
 
     /**
@@ -883,8 +1003,8 @@ class grade_report_forecast extends grade_report {
                 }
             
             // otherwise, this is an item, if a "forecasted" grade has been input for this item, include it in the container
-            } elseif (array_key_exists($gradeItemId, $this->inputData)) {
-                $values[$gradeItemId] = $this->inputData[$gradeItemId];
+            } elseif (array_key_exists($gradeItemId, $this->inputData['grades'])) {
+                $values[$gradeItemId] = $this->inputData['grades'][$gradeItemId];
             
             // otherwise, try to get a grade for this grade_item for this user
             } else {
@@ -1040,16 +1160,12 @@ class grade_report_forecast extends grade_report {
      */
     private function formatLetter($value) {
         global $CFG;
-        $context = context_course::instance($this->courseid);
-
-        // get this course's letters
-        $letters = grade_get_letters($context);
-
+        
         // check for legacy stuff...
         $gradebookcalculationsfreeze = 'gradebook_calculations_freeze_' . $this->courseid;
 
         // find and return the proper letter grade
-        foreach ($letters as $boundary => $letter) {
+        foreach ($this->letters as $boundary => $letter) {
             if ( ! (property_exists($CFG, $gradebookcalculationsfreeze) && (int)$CFG->{$gradebookcalculationsfreeze} <= 20160518)) {
                 // The boundary is a percentage out of 100 so use 0 as the min and 100 as the max.
                 $boundary = grade_grade::standardise_score($boundary, 0, 100, 0, 100);
@@ -1072,6 +1188,69 @@ class grade_report_forecast extends grade_report {
      */
     private function formatPercentage($value, $decimals) {
         return $this->formatNumber($value, $decimals) . '%';
+    }
+
+    /**
+     * Converts raw POST data received by the report into a formatted structure to be used
+     * 
+     * Returns an array of: 1) actual grade item inputs ('grades') in form: (grade_item_id as int) => (input value as string),
+     * 2) a 'totalUngradedItemCount' representing the total number of "hard-ungraded" grade items, and 3) a count of the grade
+     * inputs given
+     * 
+     * @return array
+     */
+    private function formatRawInputData($data) {
+        $grades = [];
+        $totalUngradedItemCount = 0;
+
+        // itereate through each POSTed form element
+        foreach ($data as $key => $value) {
+            // if this is a legitimate grade item input element
+            if (strpos($key, $this->getGradeItemInputPrefix()) == 0) {
+                // increment the total available grade item count
+                $totalUngradedItemCount++;
+
+                // if a value has been input, format and add to results array
+                if ( ! empty($value)) {
+                    $grades[str_replace($this->getGradeItemInputPrefix(), '', $key)] = $value;
+                }
+            }
+        }
+
+        $formattedInputData = [
+            'grades' => $grades,
+            'totalUngradedItemCount' => $totalUngradedItemCount,
+            'inputGradeItemCount' => count($grades)
+        ];
+
+        return $formattedInputData;
+    }
+
+    /**
+     * Helper function for returning the grade item prefix key
+     * 
+     * @return string
+     */
+    private function getGradeItemInputPrefix() {
+        return 'input-gradeitem-';
+    }
+
+    /**
+     * Helper function for returning the "forecast category" item prefix key
+     * 
+     * @return string
+     */
+    private function getForecastCategoryItemPrefix() {
+        return 'fcst-cat-';
+    }
+
+    /**
+     * Helper function for returning the "forecast course" item prefix key
+     * 
+     * @return string
+     */
+    private function getForecastCourseItemPrefix() {
+        return 'fcst-course-';
     }
     
 }
@@ -1171,28 +1350,3 @@ function grade_report_forecast_profilereport($course, $user, $viewasuser = false
  * @param stdClass $course Course object
  */
 function gradereport_forecast_myprofile_navigation(core_user\output\myprofile\tree $tree, $user, $iscurrentuser, $course) {}
-
-/**
- * Helper function for getting posted grade input data
- * 
- * Returns an array of grade item inputs (only input values) from POST data in form: (grade_item_id as int) => (input value as string)
- * 
- * @return array
- */
-function getGradeItemInput() {
-    if ( empty($_POST))
-        return [];
-
-    $gradeItemInput = [];
-
-    foreach ($_POST as $key => $value) {
-        // input-gradeitem-
-        $itemId = substr($key, 16);
-
-        if ($itemId) {
-            $gradeItemInput[$itemId] = $value;
-        }
-    }
-
-    return $gradeItemInput;
-}

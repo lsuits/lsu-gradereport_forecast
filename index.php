@@ -29,6 +29,7 @@ require_once $CFG->dirroot.'/grade/report/forecast/lib.php';
 
 $PAGE->requires->jquery();
 $PAGE->requires->js('/grade/report/forecast/js/forecast.js');
+$PAGE->requires->js('/grade/report/forecast/js/modal.js');
 
 $courseid = required_param('id', PARAM_INT);
 $userid   = optional_param('userid', $USER->id, PARAM_INT);
@@ -166,5 +167,7 @@ if (isset($report)) {
     echo html_writer::tag('div', '', array('class' => 'clearfix'));
     echo $OUTPUT->notification(get_string('selctauser'));
 }
+
+echo $report->getMustMakeModal();
 
 echo $OUTPUT->footer();
