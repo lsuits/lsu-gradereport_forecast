@@ -512,6 +512,7 @@ class grade_report_forecast extends grade_report {
 
         // first, determine if the user will outright pass the boundary with a zero
         if ($this->calculateTotalWithUngradedValue(0) >= $boundary) {
+            // check mark
             return '&#x2713;';
         }
 
@@ -525,6 +526,11 @@ class grade_report_forecast extends grade_report {
             $calc = $this->calculateTotalWithUngradedValue($attempt);
             
             if ($calc == $boundary) {
+                // once we find a good result, decrement the attempt value until we hit the floor
+                while ($this->calculateTotalWithUngradedValue($attempt - 1) >= $boundary) {
+                    $attempt--;
+                }
+
                 return $attempt;
             } elseif ($calc > $boundary) {
                 $right = $attempt - 1;
@@ -533,6 +539,7 @@ class grade_report_forecast extends grade_report {
             }
         }
 
+        // "X" symbol
         return '&#10005;';
     }
 
