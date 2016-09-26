@@ -478,23 +478,33 @@ class grade_report_forecast extends grade_report {
         // $gradeItem = grade_item::fetch([
         //     'id' => $this->ungradedGradeItemKey,
         // ]);
-
         
         foreach ($this->letters as $boundary => $letter) {
-            $this->itemAggregates = [];
-
-            $this->inputData['grades'][$this->ungradedGradeItemKey] = 100;
-            
-            $this->getTransformedCategoryGrades();
 
             // include the transformed master course grade
             if ( ! empty($this->courseGradeData)) {
-                $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->getTransformedCourseGrade(true, 'percentage-value');
+                $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->calculateTotalWithUngradedValue(70);
             }
         }
 
         // set must make array
         $this->mustMakeArray = $mustMakeArray;
+    }
+
+    private function calculateTotalWithUngradedValue($gradeItemValue) {
+        // clear the calculated aggregate cache
+        $this->itemAggregates = [];
+
+        // add the grade value to the stored grade input index
+        $this->inputData['grades'][$this->ungradedGradeItemKey] = $gradeItemValue;
+            
+        // recalculate all categories
+        // @TODO: only calculate necessary (affected) categories!!!
+        $this->getTransformedCategoryGrades();
+
+        $calculatedTotal = $this->getTransformedCourseGrade(true, 'percentage-value');
+
+        return $calculatedTotal;
     }
 
 
@@ -703,9 +713,6 @@ class grade_report_forecast extends grade_report {
             // if this is a category, try to get the value from the master array, otherwise, give it a zero and remove
             if ($gradeItem->itemtype == 'category') {
                 if ( ! array_key_exists($gradeItemId, $this->itemAggregates)) {
-                    // cache this missing (ungraded) grade item key
-                    // $this->ungradedGradeItemKey = $gradeItemId;
-
                     // remove grade, or set to zero depending on selected option
                     if ($removeUngradedItems) {
                         // remove the item from the item container
@@ -720,7 +727,6 @@ class grade_report_forecast extends grade_report {
                 }
             
             // otherwise, this is an item, if a "forecasted" grade has been input for this item, include it in the container
-            // @HERE inject the ungraded item's key with input grade
             } elseif (array_key_exists($gradeItemId, $this->inputData['grades'])) {
                 $values[$gradeItemId] = $this->inputData['grades'][$gradeItemId];
             
