@@ -280,10 +280,6 @@ class grade_report_forecast extends grade_report {
         $this->setup_table();
     }
 
-
-
-    
-
     /**
      * Returns a JSON array of this user's forecasted category and course grades for this course considering any input values
      * 
@@ -297,7 +293,7 @@ class grade_report_forecast extends grade_report {
 
         // add "must make" data to response
         if ($this->response['showMustMake'] = $showMustMake) {
-            // $this->response['ungradedGradeItemKey'] = $this->ungradedGradeItemKey;
+            $this->response['ungradedGradeItemKey'] = $this->ungradedGradeItemKey;
             $this->response['mustMakeArray'] = $this->mustMakeArray;
         }
 
@@ -320,7 +316,6 @@ class grade_report_forecast extends grade_report {
             $this->response['course'] = $this->getTransformedCourseGrade();
         }
 
-        // if (false) {
         if ($shouldCalculateMustMake) {
             $this->calculateMustMake();
         }
@@ -471,26 +466,82 @@ class grade_report_forecast extends grade_report {
     }
 
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////
-
+    /**
+     * Populates the "must make" array by iterating through a course's "letter" boundaries and
+     * determining what missing grade is necessary to achieve each boundary
+     * 
+     * @return void
+     */
     private function calculateMustMake() {
-        // fetch the missing grade item
-        // $gradeItem = grade_item::fetch([
-        //     'id' => $this->ungradedGradeItemKey,
-        // ]);
-        
-        foreach ($this->letters as $boundary => $letter) {
 
-            // include the transformed master course grade
-            if ( ! empty($this->courseGradeData)) {
-                $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->calculateTotalWithUngradedValue(70);
-            }
+        // first, determine if the user will outright pass all boundaries with a zero
+        // if ($this->calculateTotalWithUngradedValue(0) >= $this->courseGradeBoundaryHigh) {
+        //     // if so, return all checks as results
+        //     $this->mustMakeArray = $this->createMustMakeArray('checks');
+        //     return;
+        // }
+
+        // // then, determine if the user will get the lowest boundary with a 100
+        // if ($this->calculateTotalWithUngradedValue(100) < $this->courseGradeBoundaryLow) {
+        //     // if so, return all fails as results
+        //     $this->mustMakeArray = $this->createMustMakeArray('fails');
+        //     return;
+        // }
+
+        // then, loop through all boundaries calculating for each the grade necessary to get that boundary
+        // iterate through the boundaries, starting at the lowest
+        $boundaries = array_reverse(array_keys($this->letters));
+
+        foreach ($boundaries as $boundary) {
+            // find the passing grade value for this boundary and add to results
+            $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->searchForPassingGradeResult($boundary);
         }
 
         // set must make array
         $this->mustMakeArray = $mustMakeArray;
     }
 
+    /**
+     * Performs a binary search of attempts against the given boundary and returns
+     * the minimum whole number grade needed to achieve that boundary value
+     * 
+     * @param  int  $boundary  minimum grade value for a letter
+     * @return string
+     */
+    private function searchForPassingGradeResult($boundary) {
+
+        // first, determine if the user will outright pass the boundary with a zero
+        if ($this->calculateTotalWithUngradedValue(0) >= $boundary) {
+            return '&#x2713;';
+        }
+
+        // if not, try a binary search attempt and return result
+        $left = 0;
+        $right = 99;
+
+        while ($left <= $right) {
+            $attempt = floor(($left + $right)/2);
+
+            $calc = $this->calculateTotalWithUngradedValue($attempt);
+            
+            if ($calc == $boundary) {
+                return $attempt;
+            } elseif ($calc > $boundary) {
+                $right = $attempt - 1;
+            } elseif ($calc < $boundary) {
+                $left = $attempt + 1;
+            }
+        }
+
+        return '&#10005;';
+    }
+
+    /**
+     * Returns a calculated course whole number total given a value to add as it's missing item input
+     * 
+     * @param  int $gradeItemValue  grade value for its course's missing item
+     * @return int  calculated course total as whole number rounded down
+     */
     private function calculateTotalWithUngradedValue($gradeItemValue) {
         // clear the calculated aggregate cache
         $this->itemAggregates = [];
@@ -502,18 +553,26 @@ class grade_report_forecast extends grade_report {
         // @TODO: only calculate necessary (affected) categories!!!
         $this->getTransformedCategoryGrades();
 
+        // transform value into a whole number
         $calculatedTotal = $this->getTransformedCourseGrade(true, 'percentage-value');
 
         return $calculatedTotal;
     }
 
+    // checks, fails, or array of values
+    private function createMustMakeArray($values) {
+        $mustMakeArray = [];
 
-    private function getNeededGradeForBoundaryTotal($boundary) {
-        return $boundary - 0.04;
+        // iterate through the boundaries, starting at the lowest
+        foreach ($this->letters as $boundary => $letter) {
+            // include the transformed master course grade
+            if ( ! empty($this->courseGradeData)) {
+                $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $values;
+            }
+        }
+
+        return $mustMakeArray;
     }
-
-    
-    ///////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * Returns the HTML for the "must make" modal component
