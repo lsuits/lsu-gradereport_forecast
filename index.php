@@ -69,7 +69,9 @@ if (has_capability('moodle/grade:viewall', $context)) {
     $access = true;
 }
 
-if (!$access) {
+$enabled = grade_get_setting($courseid, 'report_forecast_enabled_for_students', $CFG->grade_report_forecast_enabled_for_students);
+
+if (!$enabled and !$access) {
     // no access to grades!
     print_error('nopermissiontoviewgrades', 'error',  $CFG->wwwroot.'/course/view.php?id='.$courseid);
 }
@@ -168,6 +170,9 @@ if (isset($report)) {
     echo $OUTPUT->notification(get_string('selctauser'));
 }
 
-echo $report->getMustMakeModal();
+if (grade_get_setting($courseid, 'report_forecast_must_make_enabled', $CFG->grade_report_forecast_must_make_enabled)) {
+    echo $report->getMustMakeModal();
+}
+
 
 echo $OUTPUT->footer();

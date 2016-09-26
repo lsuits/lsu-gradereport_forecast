@@ -24,6 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die;
 
+$_s = function($key) { return get_string($key, 'gradereport_forecast'); };
+
 if ($ADMIN->fulltree) {
 
     $settings->add(new admin_setting_configcheckbox('grade_report_forecast_showlettergrade', get_string('showlettergrade', 'grades'), get_string('showlettergrade', 'grades'), 1));
@@ -41,4 +43,8 @@ if ($ADMIN->fulltree) {
                                                       array(GRADE_REPORT_HIDE_TOTAL_IF_CONTAINS_HIDDEN => get_string('hide'),
                                                             GRADE_REPORT_SHOW_TOTAL_IF_CONTAINS_HIDDEN => get_string('hidetotalshowexhiddenitems', 'grades'),
                                                             GRADE_REPORT_SHOW_REAL_TOTAL_IF_CONTAINS_HIDDEN => get_string('hidetotalshowinchiddenitems', 'grades'))));
+
+    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_enabled_for_students', $_s('enabled_for_students'), $_s('enabled_for_students_desc'), 1));
+
+    $settings->add(new admin_setting_configcheckbox('grade_report_forecast_must_make_enabled', $_s('must_make_enabled'), $_s('must_make_enabled_desc'), 1));
 }
