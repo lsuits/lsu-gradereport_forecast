@@ -477,14 +477,14 @@ class grade_report_forecast extends grade_report {
         // first, determine if the user will outright pass all boundaries with a zero
         // if ($this->calculateTotalWithUngradedValue(0) >= $this->courseGradeBoundaryHigh) {
         //     // if so, return all checks as results
-        //     $this->mustMakeArray = $this->createMustMakeArray('checks');
+        //     $this->mustMakeArray = $this->createMustMakeArray($this->getSymbolCheckMark());
         //     return;
         // }
 
         // // then, determine if the user will get the lowest boundary with a 100
         // if ($this->calculateTotalWithUngradedValue(100) < $this->courseGradeBoundaryLow) {
         //     // if so, return all fails as results
-        //     $this->mustMakeArray = $this->createMustMakeArray('fails');
+        //     $this->mustMakeArray = $this->createMustMakeArray($this->getSymbolXMark());
         //     return;
         // }
 
@@ -513,10 +513,10 @@ class grade_report_forecast extends grade_report {
         // first, determine if the user will outright pass the boundary with a zero
         if ($this->calculateTotalWithUngradedValue(0) >= $boundary) {
             // check mark
-            return '&#x2713;';
+            return $this->getSymbolCheckMark();
         }
 
-        // if not, try a binary search attempt and return result
+        // if not, try a binary search attempt (with possible attempts at 0 - 99) and return result
         $left = 0;
         $right = 99;
 
@@ -540,6 +540,24 @@ class grade_report_forecast extends grade_report {
         }
 
         // "X" symbol
+        return $this->getSymbolXMark();
+    }
+
+    /**
+     * Helper function for rendering a check mark
+     * 
+     * @return string
+     */
+    private function getSymbolCheckMark() {
+        return '&#x2713;';
+    }
+
+    /**
+     * Helper function for rendering an "X" mark
+     * 
+     * @return string
+     */
+    private function getSymbolXMark() {
         return '&#10005;';
     }
 
@@ -557,7 +575,7 @@ class grade_report_forecast extends grade_report {
         $this->inputData['grades'][$this->ungradedGradeItemKey] = $gradeItemValue;
             
         // recalculate all categories
-        // @TODO: only calculate necessary (affected) categories!!!
+        // @TODO: for optimization, only calculate necessary (affected) categories!!!
         $this->getTransformedCategoryGrades();
 
         // transform value into a whole number
@@ -566,15 +584,20 @@ class grade_report_forecast extends grade_report {
         return $calculatedTotal;
     }
 
-    // checks, fails, or array of values
-    private function createMustMakeArray($values) {
+    /**
+     * Returns a "must make" array with all boundary levels containing the same value
+     * 
+     * @param  string $value
+     * @return array
+     */
+    private function createMustMakeArray($value) {
         $mustMakeArray = [];
 
         // iterate through the boundaries, starting at the lowest
         foreach ($this->letters as $boundary => $letter) {
             // include the transformed master course grade
             if ( ! empty($this->courseGradeData)) {
-                $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $values;
+                $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $value;
             }
         }
 
@@ -593,19 +616,14 @@ class grade_report_forecast extends grade_report {
                     <div class="modal-content">
                         <div class="modal-header">
                             <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                            <h4 class="modal-title">Must Make</h4>
-                        </div>
-                    
-                        <div class="modal-body">
-                            <p>YOU must make...</p>
+                            <h4 class="modal-title">' . get_string('must_make_modal_heading', 'gradereport_forecast') . '</h4>
                         </div>';
 
                     $mustMakeMarkup .= $this->getMustMakeModalTable();
 
                     $mustMakeMarkup .= '
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-primary">Save changes</button>
+                            <button type="button" class="btn btn-primary btn-lg btn-block" data-dismiss="modal">Close</button>
                         </div>
                     </div>
                 </div>
@@ -620,7 +638,7 @@ class grade_report_forecast extends grade_report {
      * @return string
      */
     private function getMustMakeModalTable() {
-        $modalTable = '<table class="table">';
+        $modalTable = '<table class="table table-striped">';
 
         foreach ($this->letters as $boundary => $letter) {
             $modalTable .= '

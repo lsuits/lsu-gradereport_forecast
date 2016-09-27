@@ -32,3 +32,4 @@ $string['enabled_for_students'] = 'Enable for students';
 $string['enabled_for_students_desc'] = 'Enable students to view this report?';
 $string['must_make_enabled'] = 'Must Make table enabled';
 $string['must_make_enabled_desc'] = 'Enable the report to display a "must make" pop-up when only one grade input is missing from calculation';
+$string['must_make_modal_heading'] = 'Projected Grades';
