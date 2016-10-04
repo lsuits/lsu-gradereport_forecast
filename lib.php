@@ -474,6 +474,9 @@ class grade_report_forecast extends grade_report {
      */
     private function calculateMustMake() {
 
+        // get the sole missing item
+        $missingItem = grade_item::fetch(['id' => $this->ungradedGradeItemKey]);
+
         // first, determine if the user will outright pass all boundaries with a zero
         // if ($this->calculateTotalWithUngradedValue(0) >= $this->courseGradeBoundaryHigh) {
         //     // if so, return all checks as results
@@ -494,7 +497,7 @@ class grade_report_forecast extends grade_report {
 
         foreach ($boundaries as $boundary) {
             // find the passing grade value for this boundary and add to results
-            $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->searchForPassingGradeResult($boundary);
+            $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->getPassingGradeResult($boundary, $missingItem->grademax);
         }
 
         // set must make array
@@ -506,9 +509,10 @@ class grade_report_forecast extends grade_report {
      * the minimum whole number grade needed to achieve that boundary value
      * 
      * @param  int  $boundary  minimum grade value for a letter
+     * @param  int  $maxGrade  maximum grade
      * @return string
      */
-    private function searchForPassingGradeResult($boundary) {
+    private function getPassingGradeResult($boundary, $maxGrade) {
 
         // first, determine if the user will outright pass the boundary with a zero
         if ($this->calculateTotalWithUngradedValue(0) >= $boundary) {
@@ -518,7 +522,7 @@ class grade_report_forecast extends grade_report {
 
         // if not, try a binary search attempt (with possible attempts at 0 - 99) and return result
         $left = 0;
-        $right = 99;
+        $right = $maxGrade - 1;
 
         while ($left <= $right) {
             $attempt = floor(($left + $right)/2);
