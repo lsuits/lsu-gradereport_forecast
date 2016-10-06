@@ -231,6 +231,11 @@ class grade_report_forecast extends grade_report {
         }
         $this->rangedecimals = grade_get_setting($this->courseid, 'report_forecast_rangedecimals', $defaultrangedecimals);
 
+        if (property_exists($CFG, 'grade_report_forecast_enabledforstudents')) {
+            $defaultenabledforstudents = $CFG->grade_report_forecast_enabledforstudents;
+        }
+        $this->enabledforstudents = grade_get_setting($this->courseid, 'report_forecast_rangedecimals', $defaultenabledforstudents);
+
         // hard set this to true as we need the gtree to be consistent
         $this->switch = true;
 
@@ -1526,27 +1531,30 @@ function grade_report_forecast_settings_definition(&$mform) {
                       0 => get_string('no'),
                       1 => get_string('yes'));
 
-    if (empty($CFG->grade_report_forecast_enabled_for_students)) {
+    if (empty($CFG->grade_report_forecast_enabledforstudents)) {
         $options[-1] = get_string('defaultprev', 'grades', $options[0]);
     } else {
         $options[-1] = get_string('defaultprev', 'grades', $options[1]);
     }
 
-    $mform->addElement('select', 'grade_report_forecast_enabled_for_students', 
-                        get_string('enabled_for_students', 'gradereport_forecast'), $options);
+    $mform->addElement('select', 'report_forecast_enabledforstudents', get_string('enabled_for_students', 'gradereport_forecast'), $options);
+
+/*  Taking this out because it does not work reliably enough
 
     $options = array(-1 => get_string('default', 'grades'),
                       0 => get_string('no'),
                       1 => get_string('yes'));
 
-    if (empty($CFG->grade_report_forecast_must_make_enabled)) {
+    if (empty($CFG->grade_report_forecast_mustmakeenabled)) {
         $options[-1] = get_string('defaultprev', 'grades', $options[0]);
     } else {
         $options[-1] = get_string('defaultprev', 'grades', $options[1]);
     }
 
-    $mform->addElement('select', 'grade_report_forecast_must_make_enabled',
-                        get_string('must_make_enabled', 'gradereport_forecast'), $options);
+    $mform->addElement('select', 'report_forecast_mustmakeenabled', get_string('must_make_enabled', 'gradereport_forecast'), $options);
+
+*/
+
 }
 
 /**

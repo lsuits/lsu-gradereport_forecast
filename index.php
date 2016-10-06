@@ -55,25 +55,21 @@ if (empty($userid)) {
     }
 }
 
-$access = false;
-if (has_capability('moodle/grade:viewall', $context)) {
-    //ok - can view all course grades
-    $access = true;
+$enabled = grade_get_setting($courseid, 'report_forecast_enabledforstudents', $CFG->grade_report_forecast_enabledforstudents);
+$view_all = has_capability('moodle/grade:viewall', $context);
+$view_own = $userid == $USER->id and has_capability('moodle/grade:view', $context) and $course->showgrades;
+$view_user = has_capability('moodle/grade:viewall', context_user::instance($userid)) and $course->showgrades;
+$url = $CFG->wwwroot . '/course/view.php?id=' . $courseid;
 
-} else if ($userid == $USER->id and has_capability('moodle/grade:view', $context) and $course->showgrades) {
-    //ok - can view own grades
-    $access = true;
-
-} else if (has_capability('moodle/grade:viewall', context_user::instance($userid)) and $course->showgrades) {
-    // ok - can view grades of this user- parent most probably
-    $access = true;
-}
-
-$enabled = grade_get_setting($courseid, 'report_forecast_enabled_for_students', $CFG->grade_report_forecast_enabled_for_students);
-
-if (!$enabled and !$access) {
-    // no access to grades!
-    print_error('nopermissiontoviewgrades', 'error',  $CFG->wwwroot.'/course/view.php?id='.$courseid);
+if (!($view_all or ($view_own && $enabled) or $view_user)) {
+    // Be sure users are not automatically redirected back here if disabled after use
+    $USER->grade_last_report[$course->id] = 'user';
+    // redirect them back to the course, letting them know it was disabled
+    redirect($url, get_string('nopermissiontouseforecast', 'gradereport_forecast'), 1);
+    // if somehow they don't redirect, print an error and die
+    print_error('nopermissiontouseforecast', 'gradereport_forecast',  $url);
+    echo $OUTPUT->footer();
+    die();
 }
 
 /// return tracking object
@@ -83,6 +79,7 @@ $gpr = new grade_plugin_return(array('type'=>'report', 'plugin'=>'forecast', 'co
 if (!isset($USER->grade_last_report)) {
     $USER->grade_last_report = array();
 }
+
 $USER->grade_last_report[$course->id] = 'forecast';
 
 // First make sure we have proper final grades.
@@ -170,7 +167,7 @@ if (isset($report)) {
     echo $OUTPUT->notification(get_string('selctauser'));
 }
 
-if (grade_get_setting($courseid, 'report_forecast_must_make_enabled', $CFG->grade_report_forecast_must_make_enabled)) {
+if (grade_get_setting($courseid, 'report_forecast_mustmakeenabled', $CFG->grade_report_forecast_mustmakeenabled)) {
     echo $report->getMustMakeModal();
 }
 
