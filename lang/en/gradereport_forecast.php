@@ -33,4 +33,6 @@ $string['enabled_for_students_desc'] = 'Enable students to view this report?';
 $string['must_make_enabled'] = 'Must Make table enabled';
 $string['must_make_enabled_desc'] = 'Enable the report to display a "must make" pop-up when only one grade input is missing from calculation';
 $string['must_make_modal_heading'] = 'Projected Grades';
+$string['must_make_modal_letter_column_heading'] = 'Final Letter Grade';
+$string['must_make_modal_grade_column_heading'] = 'Assignment Score Needed';
 $string['nopermissiontouseforecast'] = 'Projected Final Grade has been disabled for this course by your instructor.';

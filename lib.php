@@ -651,14 +651,27 @@ class grade_report_forecast extends grade_report {
      * @return string
      */
     private function getMustMakeModalTable() {
-        $modalTable = '<table class="table table-striped">';
+        $modalTable = '
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>' . get_string('must_make_modal_letter_column_heading', 'gradereport_forecast') . '</th>
+                        <th>' . get_string('must_make_modal_grade_column_heading', 'gradereport_forecast') . '</th>
+                        <th></th>
+                    </tr>
+                </thead>';
 
         foreach ($this->letters as $boundary => $letter) {
             $modalTable .= '
-                <tr>
-                    <td width="50%">' . $letter . '</td>
-                    <td width="50%" id="' . $this->getMustMakeLetterId($boundary) . '"></td>
-                </tr>';
+                <tbody>
+                    <tr>
+                        <td width="10%"></td>
+                        <td width="40%">' . $letter . '</td>
+                        <td width="40%" id="' . $this->getMustMakeLetterId($boundary) . '"></td>
+                        <td width="10%"></td>
+                    </tr>
+                </tbody>';
         }
 
         $modalTable .= '</table>';
