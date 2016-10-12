@@ -1543,8 +1543,6 @@ function grade_report_forecast_settings_definition(&$mform) {
 
     $mform->addElement('select', 'report_forecast_enabledforstudents', get_string('enabled_for_students', 'gradereport_forecast'), $options);
 
-/*  Taking this out because it does not work reliably enough
-
     $options = array(-1 => get_string('default', 'grades'),
                       0 => get_string('no'),
                       1 => get_string('yes'));
@@ -1556,9 +1554,6 @@ function grade_report_forecast_settings_definition(&$mform) {
     }
 
     $mform->addElement('select', 'report_forecast_mustmakeenabled', get_string('must_make_enabled', 'gradereport_forecast'), $options);
-
-*/
-
 }
 
 /**
