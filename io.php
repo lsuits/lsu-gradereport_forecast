@@ -36,37 +36,12 @@ if ( ! $course = $DB->get_record('course', array('id' => $courseid))) {
     print_error('nocourseid');
 }
 
-// necessary moodle biz...
 $gpr = new grade_plugin_return(['type' => 'report', 'plugin' => 'forecast', 'courseid' => $courseid, 'userid' => $userid]);
 $context = context_course::instance($courseid);
 $PAGE->set_context($context);
 
-// begin the report stuff...
-
-// get all grade item input (missing grade items only)
-// $gradeItemInput = getGradeItemInput();
-// $gradeItemInput = ['116' => 90, '117' => 88];
-
 // get report instance with injected grade item input
 $report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, $_POST);
-// $report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, [
-//     'input-gradeitem-116' => '90', 
-//     'input-gradeitem-117' => '88',
-//     'input-gradeitem-114' => '',
-//     'input-gradeitem-112' => ''
-// ]);
-
-/*
- Production here...
- */
 
 // return the json encoded response
 echo $report->getJsonResponse();
-
-/*
- Testing here...
- */
-
-// echo '<pre>';
-// echo $report->getJsonResponse();
-// echo '</pre>';
