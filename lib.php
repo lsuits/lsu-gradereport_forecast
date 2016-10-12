@@ -1008,7 +1008,7 @@ class grade_report_forecast extends grade_report {
         $grades = [];
         $totalUngradedItemCount = 0;
 
-        // itereate through each POSTed form element
+        // iterate through each POSTed form element
         foreach ($data as $key => $value) {
             // if this is a legitimate grade item input element
             if (strpos($key, $this->getGradeItemInputPrefix()) == 0) {
@@ -1016,7 +1016,7 @@ class grade_report_forecast extends grade_report {
                 $totalUngradedItemCount++;
 
                 // if a value has been input, format and add to results array
-                if ( ! empty($value)) {
+                if ($value != '') {
                     $grades[str_replace($this->getGradeItemInputPrefix(), '', $key)] = $value;
                 }
             }
