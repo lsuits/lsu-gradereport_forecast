@@ -501,8 +501,8 @@ class grade_report_forecast extends grade_report {
         $boundaries = array_reverse(array_keys($this->letters));
 
         foreach ($boundaries as $boundary) {
-            // find the passing grade value for this boundary and add to results
-            $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->getPassingGradeResult($boundary, $missingItem->grademax);
+            // find the passing grade value for this item and this boundary and add to results
+            $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->getPassingGradeItemValue($boundary, $missingItem->grademin, $missingItem->grademax);
         }
 
         // set must make array
@@ -510,40 +510,42 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
-     * Performs a binary search of attempts against the given boundary and returns
-     * the minimum whole number grade needed to achieve that boundary value
+     * Returns the minimum passing grade value necessary to achieve to given minimum grade value threshold
+     *
+     * The returned value must be within the achievable bounds specified
      * 
-     * @param  int  $boundary  minimum grade value for a letter
-     * @param  int  $maxGrade  maximum grade
+     * @param  int  $minimumGradeValueBoundary  minimum grade value for a letter
+     * @param  int  $minValue   minimum grade value possible for this search attempt
+     * @param  int  $maxValue   maximum grade value possible for this search attempt
      * @return string
      */
-    private function getPassingGradeResult($boundary, $maxGrade) {
+    private function getPassingGradeItemValue($minimumGradeValueBoundary, $minValue, $maxValue) {
 
-        // first, determine if the user will outright pass the boundary with a zero
-        if ($this->calculateTotalWithUngradedValue(0) >= $boundary) {
+        // first, determine if the user will outright meet the minimum with a zero
+        if ($this->calculateTotalWithUngradedValue(0) >= $minimumGradeValueBoundary) {
             // check mark
             return $this->getSymbolCheckMark();
         }
 
-        // if not, try a binary search attempt (with possible attempts at 0 - 99) and return result
-        $left = 0;
-        $right = $maxGrade - 1;
+        // if not, try a binary search attempt and return result
+        $left = $minValue;
+        $right = $maxValue - 1;
 
         while ($left <= $right) {
             $attempt = floor(($left + $right)/2);
 
             $calc = $this->calculateTotalWithUngradedValue($attempt);
             
-            if ($calc == $boundary) {
+            if ($calc == $minimumGradeValueBoundary) {
                 // once we find a good result, decrement the attempt value until we hit the floor
-                while ($this->calculateTotalWithUngradedValue($attempt - 1) >= $boundary) {
+                while ($this->calculateTotalWithUngradedValue($attempt - 1) >= $minimumGradeValueBoundary) {
                     $attempt--;
                 }
 
                 return $attempt;
-            } elseif ($calc > $boundary) {
+            } elseif ($calc > $minimumGradeValueBoundary) {
                 $right = $attempt - 1;
-            } elseif ($calc < $boundary) {
+            } elseif ($calc < $minimumGradeValueBoundary) {
                 $left = $attempt + 1;
             }
         }
