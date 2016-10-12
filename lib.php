@@ -510,10 +510,9 @@ class grade_report_forecast extends grade_report {
     }
 
     /**
-     * Returns the minimum passing grade value necessary to achieve to given minimum grade value threshold
-     *
-     * The returned value must be within the achievable bounds specified
-     * 
+     * Returns the minimum passing grade value necessary (within given bounds) to achieve to given minimum grade value threshold,
+     * or notification of an outright pass or fail (in the form of html symbols)
+
      * @param  int  $minimumGradeValueBoundary  minimum grade value for a letter
      * @param  int  $minValue   minimum grade value possible for this search attempt
      * @param  int  $maxValue   maximum grade value possible for this search attempt
@@ -521,15 +520,18 @@ class grade_report_forecast extends grade_report {
      */
     private function getPassingGradeItemValue($minimumGradeValueBoundary, $minValue, $maxValue) {
 
-        // first, determine if the user will outright meet the minimum with a zero
-        if ($this->calculateTotalWithUngradedValue(0) >= $minimumGradeValueBoundary) {
-            // check mark
+        // first, determine if the user will outright meet the minimum with the minimum value possible
+        if ($this->calculateTotalWithUngradedValue($minValue) >= $minimumGradeValueBoundary) {
+            // return pass symbol
             return $this->getSymbolCheckMark();
+        } elseif ($this->calculateTotalWithUngradedValue($maxValue) < $minimumGradeValueBoundary) {
+            // return fail symbol
+            return $this->getSymbolXMark();
         }
 
         // if not, try a binary search attempt and return result
         $left = $minValue;
-        $right = $maxValue - 1;
+        $right = $maxValue;
 
         while ($left <= $right) {
             $attempt = floor(($left + $right)/2);
@@ -550,7 +552,7 @@ class grade_report_forecast extends grade_report {
             }
         }
 
-        // "X" symbol
+        // return fail notification
         return $this->getSymbolXMark();
     }
 
