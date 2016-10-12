@@ -304,11 +304,11 @@ function postGradeInputs() {
     $.post('io.php', inputs, function(data) {
         var response = JSON.parse(data);
         
+        handleGradeInputResponse(response);
+        
         if (response.showMustMake) {
             renderMustMakeModal(response.mustMakeArray);
         }
-
-        handleGradeInputResponse(response);
     });
 }
 
