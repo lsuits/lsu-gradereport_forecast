@@ -68,6 +68,14 @@
     padding-right: 24px;
 }
 
+.path-grade-report-forecast .modal-dialog {
+    overflow-y: initial !important;
+}
+
+.path-grade-report-forecast .modal-body {
+    height: 250px;
+    overflow-y: auto;
+}
 .path-grade-report-forecast .modal {
     display: none;
 }
