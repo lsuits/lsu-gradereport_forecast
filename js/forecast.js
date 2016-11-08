@@ -202,11 +202,11 @@ function collectFormInput() {
  * @return void
  */
 function listenForInputChanges() {
-    getGradeInputs().keyup(debounce(function(event) {
+    getGradeInputs().keyup(function(event) {
         handleInputChange(event);
 
         return;
-    }, 1000));
+    });
 }
 
 /**
@@ -252,7 +252,7 @@ function handleInputChange(event) {
         return;
     }
 
-    postGradeInputs();
+    debounce(postGradeInputs(), 1000);
 }
 
 /**
