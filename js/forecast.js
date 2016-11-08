@@ -202,12 +202,37 @@ function collectFormInput() {
  * @return void
  */
 function listenForInputChanges() {
-    getGradeInputs().keyup(function(event) {
+    getGradeInputs().keyup(debounce(function(event) {
         handleInputChange(event);
 
         return;
-    });
+    }, 1000));
 }
+
+/**
+ * Throttles/compresses the call of a given function for a given "wait" time of milliseconds
+ * 
+ * Optionally executes the function with no delay
+ * 
+ * @param  function
+ * @param  int       wait        number of milliseconds to wait
+ * @param  bool      immediate  whether or not to trigger the function instantly
+ * @return function
+ */
+function debounce(func, wait, immediate) {
+    var timeout;
+    return function() {
+        var context = this, args = arguments;
+        var later = function() {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+        };
+        var callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        if (callNow) func.apply(context, args);
+    };
+};
 
 /**
  * Event handler: validates input and refreshes report totals based on form input
