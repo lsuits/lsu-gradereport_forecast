@@ -897,10 +897,29 @@ class grade_report_forecast extends grade_report {
         $normalizedValues = [];
         
         foreach ($gradeValues as $id => $value) {
-            $normalizedValues[$id] = $value / ($gradeItems[$id]->grademax - $gradeItems[$id]->grademin);
+            // if this grade item is using a scale
+            if ($this->isScaleItem($gradeItems[$id])) {
+                if ($gradeItems[$id]->get_parent_category()->aggregation == GRADE_AGGREGATE_SUM) {
+                    $normalizedValues[$id] = $value / $gradeItems[$id]->grademax;
+                } else {
+                    if ($value > 1) {
+                        $normalizedValues[$id] = $value / $gradeItems[$id]->grademax;
+                    } else {
+                        $normalizedValues[$id] = 0;
+                    }
+                }
+            } else {
+                // normalize using the item's max & min
+                $normalizedValues[$id] = $value / ($gradeItems[$id]->grademax - $gradeItems[$id]->grademin);
+            }
+
         }
         
         return $normalizedValues;
+    }
+
+    private function isScaleItem($gradeItem) {
+        return  $gradeItem->gradetype == GRADE_TYPE_SCALE;
     }
 
     /**
@@ -1326,6 +1345,8 @@ class grade_report_forecast extends grade_report {
                 $class .= " itemcenter ";
                 $placeholder = '';
                 $inputName = '';
+                $isScaleItem = false;
+                $itemScaleArray = [];
 
                 // get grade and value
                         // $gradeValue = grade_format_gradevalue($gradeval, $grade_grade->grade_item, true);
@@ -1337,8 +1358,20 @@ class grade_report_forecast extends grade_report {
                     $class .= ' fcst-' . (( ! is_null($gradeval)) ? 'static' : 'dynamic' ) . '-item-' . $eid . ' ';
                     $class .= ' grade-max-' . $grade_grade->grade_item->grademax;
                     $class .= ' grade-min-' . $grade_grade->grade_item->grademin;
-                    $placeholder = $grade_grade->grade_item->grademin . ' - ' . $grade_grade->grade_item->grademax;
+
                     $inputName = $this->getGradeItemInputPrefix() . $eid;
+                    
+                    // check if this grade item is using a scale
+                    $isScaleItem = $this->isScaleItem($grade_grade->grade_item);
+
+                    if ($isScaleItem) {
+                        $itemScaleArray = $grade_grade->grade_item->load_scale()->scale_items;
+                    }
+
+                    $placeholder = $isScaleItem ? '' : $grade_grade->grade_item->grademin . ' - ' . $grade_grade->grade_item->grademax;
+
+                    $class .= $isScaleItem ? ' is-scale' : '';
+                    
                 } elseif ($type == 'categoryitem') {
                     $class .= ' ' . $this->getForecastCategoryItemPrefix() . $eid . ' ';
                 } elseif ($type == 'courseitem') {
@@ -1371,6 +1404,8 @@ class grade_report_forecast extends grade_report {
                     $data['grade']['inputName'] = $inputName;
                 }
                 $data['grade']['headers'] = "$header_cat $header_row grade";
+                $data['grade']['isScaleItem'] = $isScaleItem;
+                $data['grade']['itemScaleArray'] = $itemScaleArray;
             }
         }
 
@@ -1456,9 +1491,22 @@ class grade_report_forecast extends grade_report {
                         if (strpos($this->tabledata[$i][$name]['class'], ' item ')) {
                             $placeholder = isset($this->tabledata[$i][$name]['placeholder']) ? $this->tabledata[$i][$name]['placeholder'] : 'Enter grade';
                             $inputName = isset($this->tabledata[$i][$name]['inputName']) ? $this->tabledata[$i][$name]['inputName'] : 'default-input-gradeitem';
-                            $content = '<input type="text" name="' . $inputName . '" placeholder="' . $placeholder . '"><br>
+                            
+                            if ($this->tabledata[$i][$name]['isScaleItem']) {
+                                $content = '<select name="' . $inputName . '">';
+                                
+                                $content .= '<option value="">Select</option>';
+
+                                foreach ($this->tabledata[$i][$name]['itemScaleArray'] as $optionid => $optionname) {
+                                    $content .= '<option value="' . ( (int) $optionid + 1 ) . '">' . ucfirst($optionname) . '</option>';
+                                }
+
+                                $content .= '</select>';
+                            } else {
+                                $content = '<input type="text" name="' . $inputName . '" placeholder="' . $placeholder . '"><br>
                                         <span class="fcst-error fcst-error-invalid" style="display: none; color: red;">Invalid input!</span>
                                         <span class="fcst-error fcst-error-range" style="display: none; color: red;">Must be within range!</span>';
+                            }
                         } else {
                             $content = '--';
                         }

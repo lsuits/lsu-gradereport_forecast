@@ -207,6 +207,12 @@ function listenForInputChanges() {
 
         return;
     });
+
+    getGradeInputs().change(function(event) {
+        postGradeInputs();
+
+        return;
+    });
 }
 
 /**
