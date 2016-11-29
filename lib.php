@@ -844,7 +844,9 @@ class grade_report_forecast extends grade_report {
             } else {
                 $grade = $gradeItem->get_grade($this->user->id);
 
-                if (is_null($grade->finalgrade)) {
+                if ($grade->excluded) {
+                    unset($gradeItems[$gradeItemId]);
+                } else if (is_null($grade->finalgrade)) {
 
                     // cache this missing (ungraded) grade item key
                     $this->ungradedGradeItemKey = $gradeItemId;
@@ -1317,12 +1319,10 @@ class grade_report_forecast extends grade_report {
 
             if (!$hide) {
                 /// Excluded Item
-                /**
                 if ($grade_grade->is_excluded()) {
-                    $fullname .= ' ['.get_string('excluded', 'grades').']';
+                    // $fullname .= ' ['.get_string('excluded', 'grades').']';
                     $excluded = ' excluded';
                 }
-                **/
 
                 /// Other class information
                 $class .= $hidden . $excluded;
@@ -1397,6 +1397,9 @@ class grade_report_forecast extends grade_report {
                         $data['grade']['placeholder'] = $placeholder;
                         $data['grade']['inputName'] = $inputName;
                     }
+                } else if ($grade_grade->is_excluded()) {
+                    $data['grade']['class'] = $class.' excluded';
+                    $data['grade']['content'] = '(Excluded)';
                 } else {
                     $data['grade']['class'] = $class;
                     $data['grade']['content'] = $this->formatGradeDisplay($gradeval, $grade_grade->grade_item);
