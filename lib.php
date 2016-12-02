@@ -844,10 +844,7 @@ class grade_report_forecast extends grade_report {
             } else {
                 $grade = $gradeItem->get_grade($this->user->id);
 
-                if ($grade->excluded) {
-                    unset($gradeItems[$gradeItemId]);
-                } else if (is_null($grade->finalgrade)) {
-
+                if (is_null($grade->finalgrade)) {
                     // cache this missing (ungraded) grade item key
                     $this->ungradedGradeItemKey = $gradeItemId;
 
@@ -1370,7 +1367,7 @@ class grade_report_forecast extends grade_report {
 
                     $placeholder = $isScaleItem ? '' : $grade_grade->grade_item->grademin . ' - ' . $grade_grade->grade_item->grademax;
 
-                    $class .= $isScaleItem ? ' is-scale' : '';
+                    $class .= $isScaleItem ? ' fcst-dynamic-scale-item is-scale' : '';
                     
                 } elseif ($type == 'categoryitem') {
                     $class .= ' ' . $this->getForecastCategoryItemPrefix() . $eid . ' ';
@@ -1397,9 +1394,6 @@ class grade_report_forecast extends grade_report {
                         $data['grade']['placeholder'] = $placeholder;
                         $data['grade']['inputName'] = $inputName;
                     }
-                } else if ($grade_grade->is_excluded()) {
-                    $data['grade']['class'] = $class.' excluded';
-                    $data['grade']['content'] = '(Excluded)';
                 } else {
                     $data['grade']['class'] = $class;
                     $data['grade']['content'] = $this->formatGradeDisplay($gradeval, $grade_grade->grade_item);

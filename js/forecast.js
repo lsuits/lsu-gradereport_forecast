@@ -35,10 +35,17 @@ function getCategories() {
 
 /**
  * Fetches all grade item input HTML elements from forecast form
+ *
+ * Optionally returns a given class type, defaults to all "dynamic-item" classed-items
  * 
+ * @param string  type  all(default)|scale-selects
  * @return object
  */
-function getGradeInputs() {
+function getGradeInputs(type = 'all') {
+    if (type == 'scale-selects') {
+        return getElementsByType('dynamic-scale-item');
+    }
+    
     return getElementsByType('dynamic-item');
 }
 
@@ -202,17 +209,19 @@ function collectFormInput() {
  * @return void
  */
 function listenForInputChanges() {
-    getGradeInputs().keyup(function(event) {
+    var debouncedHandleInputChange = function(event) {
         handleInputChange(event);
 
         return;
-    });
+    }
 
-    getGradeInputs().change(function(event) {
+    var debouncedPostGradeInputs = function(event) {
         postGradeInputs();
+    }
 
-        return;
-    });
+    getGradeInputs().keyup(debounce(debouncedHandleInputChange, 500));
+
+    getGradeInputs('scale-selects').change(debounce(debouncedPostGradeInputs, 500));
 }
 
 /**
@@ -222,22 +231,37 @@ function listenForInputChanges() {
  * 
  * @param  function
  * @param  int       wait        number of milliseconds to wait
- * @param  bool      immediate  whether or not to trigger the function instantly
  * @return function
  */
-function debounce(func, wait, immediate) {
-    var timeout;
+function debounce(func, wait) {
+    var timeout, args, context, timestamp;
+
     return function() {
-        var context = this, args = arguments;
+        // save details of latest call
+        context = this;
+        args = [].slice.call(arguments, 0);
+        timestamp = new Date();
+
         var later = function() {
-            timeout = null;
-            if (!immediate) func.apply(context, args);
+            // how long ago was the last call
+            var last = (new Date()) - timestamp;
+
+            // if the latest call was less that the wait period ago then we reset the timeout to wait for the difference
+            if (last < wait) {
+                timeout = setTimeout(later, wait - last);
+
+            // or if not we can null out the timer and run the latest
+            } else {
+                timeout = null;
+                func.apply(context, args);
+            }
         };
-        var callNow = immediate && !timeout;
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-        if (callNow) func.apply(context, args);
-    };
+
+        // we only need to set the timer now if one isn't already running
+        if ( ! timeout) {
+            timeout = setTimeout(later, wait);
+        }
+    }
 };
 
 /**
@@ -258,7 +282,7 @@ function handleInputChange(event) {
         return;
     }
 
-    debounce(postGradeInputs(), 1000);
+    postGradeInputs();
 }
 
 /**
@@ -333,6 +357,8 @@ function postGradeInputs() {
     var inputs = collectFormInput();
 
     $.post('io.php', inputs, function(data) {
+        console.log('posting');
+        
         var response = JSON.parse(data);
         
         handleGradeInputResponse(response);
