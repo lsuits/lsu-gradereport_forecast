@@ -36,12 +36,12 @@ function getCategories() {
 /**
  * Fetches all grade item input HTML elements from forecast form
  *
- * Optionally returns a given class type, defaults to all "dynamic-item" classed-items
+ * Optionally returns a given input type, "scale-selects", defaults to all "dynamic-item" classed-items
  * 
- * @param string  type  all(default)|scale-selects
+ * @param string  type  values(default)|scale-selects
  * @return object
  */
-function getGradeInputs(type = 'all') {
+function getGradeInputs(type = 'values') {
     if (type == 'scale-selects') {
         return getElementsByType('dynamic-scale-item');
     }
@@ -219,7 +219,7 @@ function listenForInputChanges() {
         postGradeInputs();
     }
 
-    getGradeInputs().keyup(debounce(debouncedHandleInputChange, 500));
+    getGradeInputs('values').keyup(debounce(debouncedHandleInputChange, 500));
 
     getGradeInputs('scale-selects').change(debounce(debouncedPostGradeInputs, 500));
 }
@@ -355,6 +355,12 @@ function updateCourseTotal(value) {
  */
 function postGradeInputs() {
     var inputs = collectFormInput();
+
+    getCategories().each(function() {
+        $(this).html('<img src="assets/default.svg">');
+    });
+
+    getCourseCategory().html('<img src="assets/default.svg">');
 
     $.post('io.php', inputs, function(data) {
         console.log('posting');
