@@ -76,3 +76,7 @@
     height: 90%;
     overflow-y: auto;
 }
+
+.path-grade-report-forecast img.transparent {
+    background-color: transparent!important;
+}

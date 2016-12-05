@@ -208,7 +208,7 @@ function collectFormInput() {
  * 
  * @return void
  */
-function listenForInputChanges(debounceWaitTime = 500) {
+function listenForInputChanges(debounceWaitTime = 1000) {
 
     // validate grade (text) input on @keyup
     getGradeInputs('values').keyup(function(event) {
@@ -357,10 +357,10 @@ function postGradeInputs() {
     var inputs = collectFormInput();
 
     getCategories().each(function() {
-        $(this).html('<img src="assets/default.svg">');
+        $(this).html('<img class="transparent" src="assets/default.svg">');
     });
 
-    getCourseCategory().html('<img src="assets/default.svg">');
+    getCourseCategory().html('<img class="transparent" src="assets/default.svg">');
 
     $.post('io.php', inputs, function(data) {
         console.log('posting forecast grade input');
