@@ -47,4 +47,7 @@ if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_configcheckbox('grade_report_forecast_enabledforstudents', $_s('enabled_for_students'), $_s('enabled_for_students_desc'), 1));
 
     $settings->add(new admin_setting_configcheckbox('grade_report_forecast_mustmakeenabled', $_s('must_make_enabled'), $_s('must_make_enabled_desc'), 0));
+
+    $settings->add(new admin_setting_configtext('grade_report_forecast_debouncewaittime',
+        $_s('debounce_wait_time'), $_s('debounce_wait_time_desc'), '500'));
 }

@@ -36,3 +36,5 @@ $string['must_make_modal_heading'] = 'Projected Grades';
 $string['must_make_modal_letter_column_heading'] = 'Final Letter Grade';
 $string['must_make_modal_grade_column_heading'] = 'Assignment Score Needed';
 $string['nopermissiontouseforecast'] = 'Projected Final Grade has been disabled for this course by your instructor.';
+$string['debounce_wait_time'] = 'Debounce wait time';
+$string['debounce_wait_time_desc'] = 'Number of milliseconds the system will wait on additional user input before calculating grades. Set this higher to reduce the number of requests coming in to the server.';

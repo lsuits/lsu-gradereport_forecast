@@ -171,5 +171,6 @@ if (grade_get_setting($courseid, 'report_forecast_mustmakeenabled', $CFG->grade_
     echo $report->getMustMakeModal();
 }
 
+echo '<script>$(document).ready(function() { listenForInputChanges(' . grade_get_setting($courseid, 'report_forecast_debouncewaittime', $CFG->grade_report_forecast_debouncewaittime) . ') });</script>';
 
 echo $OUTPUT->footer();
