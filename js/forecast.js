@@ -208,20 +208,23 @@ function collectFormInput() {
  * 
  * @return void
  */
-function listenForInputChanges() {
-    var debouncedHandleInputChange = function(event) {
+function listenForInputChanges(debounceWaitTime = 500) {
+
+    // validate grade (text) input on @keyup
+    getGradeInputs('values').keyup(function(event) {
         handleInputChange(event);
+    });
 
-        return;
-    }
-
-    var debouncedPostGradeInputs = function(event) {
+    // create single invokation for debouncing
+    var debouncedPostGradeInputs = function() {
         postGradeInputs();
     }
 
-    getGradeInputs('values').keyup(debounce(debouncedHandleInputChange, 500));
+    // post grade inputs for calculation on grade (text) input @keyup
+    getGradeInputs('values').keyup(debounce(debouncedPostGradeInputs, debounceWaitTime));
 
-    getGradeInputs('scale-selects').change(debounce(debouncedPostGradeInputs, 500));
+    // post grade inputs for calculation on grade (scale selects) input @keyup
+    getGradeInputs('scale-selects').change(debounce(debouncedPostGradeInputs, debounceWaitTime));
 }
 
 /**
@@ -277,12 +280,6 @@ function handleInputChange(event) {
 
     hideGradeError(event.currentTarget, 'invalid');
     hideGradeError(event.currentTarget, 'range');
-
-    if (inputErrorsExist()) {
-        return;
-    }
-
-    postGradeInputs();
 }
 
 /**
@@ -354,6 +351,9 @@ function updateCourseTotal(value) {
  * @return void
  */
 function postGradeInputs() {
+    if (inputErrorsExist())
+        return false;
+
     var inputs = collectFormInput();
 
     getCategories().each(function() {
@@ -363,7 +363,7 @@ function postGradeInputs() {
     getCourseCategory().html('<img src="assets/default.svg">');
 
     $.post('io.php', inputs, function(data) {
-        console.log('posting');
+        console.log('posting forecast grade input');
         
         var response = JSON.parse(data);
         
@@ -400,9 +400,3 @@ function renderMustMakeModal(values) {
 function handleGradeInputResponse(response) {
     updateTotals(response);
 }
-
-//////////////////////////////////////////////////////////////////////////////
-
-$(document).ready(function() {
-    listenForInputChanges();
-});

@@ -1612,6 +1612,12 @@ function grade_report_forecast_settings_definition(&$mform) {
     }
 
     $mform->addElement('select', 'report_forecast_mustmakeenabled', get_string('must_make_enabled', 'gradereport_forecast'), $options);
+
+    $mform->addElement('text', 'report_forecast_debouncewaittime', get_string('debounce_wait_time', 'gradereport_forecast'));
+    // $mform->addHelpButton('report_forecast_debouncewaittime', 'debounce_wait_time_desc', 'gradereport_forecast');
+
+    $mform->setDefault('report_forecast_debouncewaittime', '500');
+    $mform->setType('report_forecast_debouncewaittime', PARAM_TEXT);
 }
 
 /**
