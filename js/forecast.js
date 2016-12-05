@@ -357,10 +357,10 @@ function postGradeInputs() {
     var inputs = collectFormInput();
 
     getCategories().each(function() {
-        $(this).html('<img class="transparent" src="assets/default.svg">');
+        $(this).html('<img class="transparent" src="assets/frspinner.svg">');
     });
 
-    getCourseCategory().html('<img class="transparent" src="assets/default.svg">');
+    getCourseCategory().html('<img class="transparent" src="assets/frspinner.svg">');
 
     $.post('io.php', inputs, function(data) {
         console.log('posting forecast grade input');
