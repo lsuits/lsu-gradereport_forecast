@@ -1316,9 +1316,11 @@ class grade_report_forecast extends grade_report {
 
             if (!$hide) {
                 /// Excluded Item
+                $isExcludedGrade = false;
                 if ($grade_grade->is_excluded()) {
-                    // $fullname .= ' ['.get_string('excluded', 'grades').']';
+                    $fullname .= ' ['.get_string('excluded', 'grades').']';
                     $excluded = ' excluded';
+                    $isExcludedGrade = true;
                 }
 
                 /// Other class information
@@ -1403,6 +1405,7 @@ class grade_report_forecast extends grade_report {
                 $data['grade']['headers'] = "$header_cat $header_row grade";
                 $data['grade']['isScaleItem'] = $isScaleItem;
                 $data['grade']['itemScaleArray'] = $itemScaleArray;
+                $data['grade']['isExcludedGrade'] = $isExcludedGrade;
             }
         }
 
@@ -1500,7 +1503,9 @@ class grade_report_forecast extends grade_report {
 
                                 $content .= '</select>';
                             } else {
-                                $content = '<input type="text" name="' . $inputName . '" placeholder="' . $placeholder . '"><br>
+                                $disabled = $this->tabledata[$i][$name]['isExcludedGrade'] ? ' disabled' : '';
+
+                                $content = '<input type="text" name="' . $inputName . '" placeholder="' . $placeholder . '"' . $disabled . '><br>
                                         <span class="fcst-error fcst-error-invalid" style="display: none; color: red;">Invalid input!</span>
                                         <span class="fcst-error fcst-error-range" style="display: none; color: red;">Must be within range!</span>';
                             }
