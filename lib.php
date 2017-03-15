@@ -482,31 +482,33 @@ class grade_report_forecast extends grade_report {
         // get the sole missing item
         $missingItem = grade_item::fetch(['id' => $this->ungradedGradeItemKey]);
 
-        // first, determine if the user will outright pass all boundaries with a zero
-        // if ($this->calculateTotalWithUngradedValue(0) >= $this->courseGradeBoundaryHigh) {
-        //     // if so, return all checks as results
-        //     $this->mustMakeArray = $this->createMustMakeArray($this->getSymbolCheckMark());
-        //     return;
-        // }
+        if ($missingItem) {
+            // first, determine if the user will outright pass all boundaries with a zero
+            // if ($this->calculateTotalWithUngradedValue(0) >= $this->courseGradeBoundaryHigh) {
+            //     // if so, return all checks as results
+            //     $this->mustMakeArray = $this->createMustMakeArray($this->getSymbolCheckMark());
+            //     return;
+            // }
 
-        // // then, determine if the user will get the lowest boundary with a 100
-        // if ($this->calculateTotalWithUngradedValue(100) < $this->courseGradeBoundaryLow) {
-        //     // if so, return all fails as results
-        //     $this->mustMakeArray = $this->createMustMakeArray($this->getSymbolXMark());
-        //     return;
-        // }
+            // // then, determine if the user will get the lowest boundary with a 100
+            // if ($this->calculateTotalWithUngradedValue(100) < $this->courseGradeBoundaryLow) {
+            //     // if so, return all fails as results
+            //     $this->mustMakeArray = $this->createMustMakeArray($this->getSymbolXMark());
+            //     return;
+            // }
 
-        // then, loop through all boundaries calculating for each the grade necessary to get that boundary
-        // iterate through the boundaries, starting at the lowest
-        $boundaries = array_reverse(array_keys($this->letters));
+            // then, loop through all boundaries calculating for each the grade necessary to get that boundary
+            // iterate through the boundaries, starting at the lowest
+            $boundaries = array_reverse(array_keys($this->letters));
 
-        foreach ($boundaries as $boundary) {
-            // find the passing grade value for this item and this boundary and add to results
-            $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->getPassingGradeItemValue($boundary, $missingItem->grademin, $missingItem->grademax);
+            foreach ($boundaries as $boundary) {
+                // find the passing grade value for this item and this boundary and add to results
+                $mustMakeArray[$this->getMustMakeLetterId($boundary)] = $this->getPassingGradeItemValue($boundary, $missingItem->grademin, $missingItem->grademax);
+            }
+
+            // set must make array
+            $this->mustMakeArray = $mustMakeArray;
         }
-
-        // set must make array
-        $this->mustMakeArray = $mustMakeArray;
     }
 
     /**
@@ -771,6 +773,7 @@ class grade_report_forecast extends grade_report {
             if (in_array($child['type'], $types)) {
                 $childObject = $child['object'];                
 
+
                 if ($child['type'] =='category' and $itemsOnly) {
                     // get this category's grade_item
                     $gradeItem = $this->getGradeItemFromCategory($childObject);
@@ -844,7 +847,10 @@ class grade_report_forecast extends grade_report {
             } else {
                 $grade = $gradeItem->get_grade($this->user->id);
 
-                if (is_null($grade->finalgrade)) {
+                if ($grade->is_excluded()) {
+                    // remove the item from the item container
+                    unset($gradeItems[$gradeItemId]);
+                } else if (is_null($grade->finalgrade)) {
                     // cache this missing (ungraded) grade item key
                     $this->ungradedGradeItemKey = $gradeItemId;
 
@@ -1662,3 +1668,5 @@ function grade_report_forecast_profilereport($course, $user, $viewasuser = false
  * @param stdClass $course Course object
  */
 function gradereport_forecast_myprofile_navigation(core_user\output\myprofile\tree $tree, $user, $iscurrentuser, $course) {}
+
+function dd($thing) { var_dump($thing);die; }
