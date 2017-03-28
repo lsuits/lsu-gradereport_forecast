@@ -196,7 +196,7 @@ function inputErrorsExist() {
 function collectFormInput() {
     var inputs = {};
     
-    $('#forecast-form :input').each(function() {
+    $('#forecast-form :input:enabled').each(function() {
         inputs[this.name] = $(this).val();
     });
 
