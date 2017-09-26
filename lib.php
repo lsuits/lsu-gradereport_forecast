@@ -1456,6 +1456,7 @@ class grade_report_forecast extends grade_report {
         /// Build table structure
         $html = "
             <form id='forecast-form' action='#'>
+            <input type='hidden' name='id' value='" . $this->courseid . "'>
             <input type='hidden' name='courseid' value='" . $this->courseid . "'>
             <input type='hidden' name='userid' value='" . $this->user->id . "'>
             <table cellspacing='0'
