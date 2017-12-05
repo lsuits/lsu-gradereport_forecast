@@ -697,6 +697,12 @@ class grade_report_forecast extends grade_report {
      * @return bool
      */
     private function shouldShowMustMake() {
+        global $CFG;
+
+        if (!$CFG->grade_report_forecast_mustmakeenabled) {
+            return false;
+        }
+
         if ( ! (array_key_exists('totalUngradedItemCount', $this->inputData) and array_key_exists('inputGradeItemCount', $this->inputData))) {
             return false;
         }
