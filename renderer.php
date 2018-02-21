@@ -22,6 +22,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
+
 /**
  * Custom renderer for the grade forecast report
  *
@@ -35,8 +37,8 @@ class gradereport_forecast_renderer extends plugin_renderer_base {
         global $USER;
 
         $select = grade_get_graded_users_select($report, $course, $userid, $groupid, $includeall);
-        $output = html_writer::tag('div', $this->output->render($select), array('id'=>'graded_users_selector'));
-        $output .= html_writer::tag('p', '', array('style'=>'page-break-after: always;'));
+        $output = html_writer::tag('div', $this->output->render($select), array('id' => 'graded_users_selector'));
+        $output .= html_writer::tag('p', '', array('style' => 'page-break-after: always;'));
 
         return $output;
     }

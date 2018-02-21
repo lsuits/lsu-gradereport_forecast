@@ -8,7 +8,7 @@
 
 /**
  * Helper for retrieving current course id from forecast form
- * 
+ *
  * @return string
  */
 function getCourseId() {
@@ -17,7 +17,7 @@ function getCourseId() {
 
 /**
  * Helper for retrieving current user id from forecast form
- * 
+ *
  * @return string
  */
 function getUserId() {
@@ -26,7 +26,7 @@ function getUserId() {
 
 /**
  * Fetches all category HTML elements from forecast form
- * 
+ *
  * @return object
  */
 function getCategories() {
@@ -37,7 +37,7 @@ function getCategories() {
  * Fetches all grade item input HTML elements from forecast form
  *
  * Optionally returns a given input type, "scale-selects", defaults to all "dynamic-item" classed-items
- * 
+ *
  * @param string  type  values(default)|scale-selects
  * @return object
  */
@@ -45,32 +45,31 @@ function getGradeInputs(type = 'values') {
     if (type == 'scale-selects') {
         return getElementsByType('dynamic-scale-item');
     }
-    
     return getElementsByType('dynamic-item');
 }
 
 /**
  * Fetches course category input HTML element from forecast form
- * 
+ *
  * @return object
  */
 function getCourseCategory() {
-    return $('td[class*="fcst-course"]'); 
+    return $('td[class*="fcst-course"]');
 }
 
 /**
  * Fetches HTML element of given key
- * 
+ *
  * @param  string  cat|dynamic-item
  * @return object
  */
 function getElementsByType(key) {
-    return $('td[class*="fcst-' + key +'"]');
+    return $('td[class*="fcst-' + key + '"]');
 }
 
 /**
  * Fetches "must make" HTML element from modal table
- * 
+ *
  * @return object
  */
 function getMustMakeElement(id) {
@@ -81,7 +80,7 @@ function getMustMakeElement(id) {
  * Determines whether or a given event has left it's element value in an acceptable state
  *
  * Bypasses some old logic that may be pertinent
- * 
+ *
  * @param  object  event
  * @return bool
  */
@@ -90,16 +89,16 @@ function isValidEventInput(event) {
 
     var key = event.keyCode;
 
-    // Integer
+    // Integer.
     if (isFinite(parseInt(String.fromCharCode(key)))) { return true }
 
-    // Numpad keys
+    // Numpad keys.
     if (key >= 96 && key <= 105) { return true }
 
-    // Ignored keys: tab, backspace, etc
+    // Ignored keys: tab, backspace, etc.
     if ($.inArray(key, [8, 46]) != -1) { return true }
 
-    // Modifier Keys
+    // Modifier Keys.
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) { return false }
 
     return false;
@@ -107,7 +106,7 @@ function isValidEventInput(event) {
 
 /**
  * Determines whether or not a given input value is within acceptable range for a specified grade element
- * 
+ *
  * @param  object  element
  * @param  string  inputValue
  * @return bool
@@ -128,7 +127,7 @@ function isElementInputInGradeRange(element, inputValue) {
 }
 /**
  * Fetches a specified "fcst" value by key for a specified element, or null if no data available
- * 
+ *
  * @param  object  element
  * @param  string  key  fcst-cat|fcst-cou|fcst-dyn|grade-mi|grade-ma
  * @return string|null
@@ -144,22 +143,22 @@ function getElementFcstValue(element, key) {
         }
     }
 
-    return null; 
+    return null;
 }
 
 /**
  * Returns a given numeric string rounded to 6 digits
- * 
+ *
  * @param  string  value
  * @return float
  */
 function roundGrade(value) {
-    return Math.round(parseFloat(value)*1000000)/1000000;
+    return Math.round(parseFloat(value) * 1000000) / 1000000;
 }
 
 /**
  * Shows a speficied error by key for a given element
- * 
+ *
  * @param  object  element
  * @param  string  key  range|invalid
  * @return void
@@ -170,7 +169,7 @@ function showGradeError(element, key) {
 
 /**
  * Hides a speficied error by key for a given element
- * 
+ *
  * @param  object  element
  * @param  string  key  range|invalid
  * @return void
@@ -181,7 +180,7 @@ function hideGradeError(element, key) {
 
 /**
  * Reports whether or not any errors are being displayed currently
- * 
+ *
  * @return bool
  */
 function inputErrorsExist() {
@@ -190,12 +189,11 @@ function inputErrorsExist() {
 
 /**
  * Fetches all forecast form input
- * 
+ *
  * @return object
  */
 function collectFormInput() {
     var inputs = {};
-    
     $('#forecast-form :input:enabled').each(function() {
         inputs[this.name] = $(this).val();
     });
@@ -205,33 +203,33 @@ function collectFormInput() {
 
 /**
  * Event listener: changes to forecast for input
- * 
+ *
  * @return void
  */
 function listenForInputChanges(debounceWaitTime = 1000) {
 
-    // validate grade (text) input on @keyup
+    // Validate grade (text) input on @keyup.
     getGradeInputs('values').keyup(function(event) {
         handleInputChange(event);
     });
 
-    // create single invokation for debouncing
+    // Create single invokation for debouncing.
     var debouncedPostGradeInputs = function() {
         postGradeInputs();
     }
 
-    // post grade inputs for calculation on grade (text) input @keyup
+    // Post grade inputs for calculation on grade (text) input @keyup.
     getGradeInputs('values').keyup(debounce(debouncedPostGradeInputs, debounceWaitTime));
 
-    // post grade inputs for calculation on grade (scale selects) input @keyup
+    // Post grade inputs for calculation on grade (scale selects) input @keyup.
     getGradeInputs('scale-selects').change(debounce(debouncedPostGradeInputs, debounceWaitTime));
 }
 
 /**
  * Throttles/compresses the call of a given function for a given "wait" time of milliseconds
- * 
+ *
  * Optionally executes the function with no delay
- * 
+ *
  * @param  function
  * @param  int       wait        number of milliseconds to wait
  * @return function
@@ -240,27 +238,26 @@ function debounce(func, wait) {
     var timeout, args, context, timestamp;
 
     return function() {
-        // save details of latest call
+        // Save details of latest call.
         context = this;
         args = [].slice.call(arguments, 0);
         timestamp = new Date();
 
         var later = function() {
-            // how long ago was the last call
+            // How long ago was the last call.
             var last = (new Date()) - timestamp;
 
-            // if the latest call was less that the wait period ago then we reset the timeout to wait for the difference
+            // If the latest call was less that the wait period ago then we reset the timeout to wait for the difference.
             if (last < wait) {
                 timeout = setTimeout(later, wait - last);
-
-            // or if not we can null out the timer and run the latest
+                // Or if not we can null out the timer and run the latest.
             } else {
                 timeout = null;
                 func.apply(context, args);
             }
         };
 
-        // we only need to set the timer now if one isn't already running
+        // We only need to set the timer now if one isn't already running.
         if ( ! timeout) {
             timeout = setTimeout(later, wait);
         }
@@ -269,7 +266,7 @@ function debounce(func, wait) {
 
 /**
  * Event handler: validates input and refreshes report totals based on form input
- * 
+ *
  * @param  object  event
  * @return void
  */
@@ -284,7 +281,7 @@ function handleInputChange(event) {
 
 /**
  * Reports whether or not an event's input is valid and displays any necessary errors
- * 
+ *
  * @param  object  event
  * @return bool
  */
@@ -310,7 +307,7 @@ function validateInputChange(event) {
 
 /**
  * Updates all report totals
- * 
+ *
  * @param  object response
  * @return void
  */
@@ -321,7 +318,7 @@ function updateTotals(response) {
 
 /**
  * Updates all category totals on report
- * 
+ *
  * @param  object  cats
  * @return void
  */
@@ -337,7 +334,7 @@ function updateCategoryTotals(cats) {
 
 /**
  * Updates course category total on report
- * 
+ *
  * @param  string  value
  * @return void
  */
@@ -347,12 +344,13 @@ function updateCourseTotal(value) {
 
 /**
  * Posts forecast form input, formats responses, handles response
- * 
+ *
  * @return void
  */
 function postGradeInputs() {
-    if (inputErrorsExist())
+    if (inputErrorsExist()) {
         return false;
+    }
 
     var inputs = collectFormInput();
 
@@ -363,21 +361,18 @@ function postGradeInputs() {
     getCourseCategory().html('<img class="transparent" src="assets/frspinner.svg">');
 
     $.post('io.php', inputs, function(data) {
-        console.log('posting forecast grade input');
-        
         var response = JSON.parse(data);
-        
         handleGradeInputResponse(response);
 
-        if (response.showMustMake) {
-            renderMustMakeModal(response.mustMakeArray);
+        if (response.showmustmake) {
+            renderMustMakeModal(response.mustmakearray);
         }
     });
 }
 
 /**
  * Populates "must make" modal table and then shows the modal
- * 
+ *
  * @return void
  */
 function renderMustMakeModal(values) {
@@ -385,7 +380,7 @@ function renderMustMakeModal(values) {
         getMustMakeElement(id).html(values[id]);
     }
 
-    // set a slight delay in triggering the modal to account for calculation time
+    // Set a slight delay in triggering the modal to account for calculation time.
     setTimeout(function() {
         $('#mustMakeModal').modal('show');
     }, 500);
@@ -393,7 +388,7 @@ function renderMustMakeModal(values) {
 
 /**
  * Handler for grade input remote response
- * 
+ *
  * @param  object  response
  * @return void
  */

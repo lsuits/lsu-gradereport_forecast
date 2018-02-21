@@ -22,10 +22,10 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once '../../../config.php';
-require_once $CFG->libdir.'/gradelib.php';
-require_once $CFG->dirroot.'/grade/lib.php';
-require_once $CFG->dirroot.'/grade/report/forecast/lib.php';
+require_once('../../../config.php');
+require_once($CFG->libdir.'/gradelib.php');
+require_once($CFG->dirroot.'/grade/lib.php');
+require_once($CFG->dirroot.'/grade/report/forecast/lib.php');
 
 $PAGE->requires->jquery();
 $PAGE->requires->js('/grade/report/forecast/js/forecast.js');
@@ -34,9 +34,9 @@ $PAGE->requires->js('/grade/report/forecast/js/modal.js');
 $courseid = required_param('id', PARAM_INT);
 $userid   = optional_param('userid', $USER->id, PARAM_INT);
 
-$PAGE->set_url(new moodle_url('/grade/report/forecast/index.php', array('id'=>$courseid)));
+$PAGE->set_url(new moodle_url('/grade/report/forecast/index.php', array('id' => $courseid)));
 
-/// basic access checks
+// Let's perform some basic access checks.
 if (!$course = $DB->get_record('course', array('id' => $courseid))) {
     print_error('nocourseid');
 }
@@ -50,32 +50,32 @@ if (empty($userid)) {
     require_capability('moodle/grade:viewall', $context);
 
 } else {
-    if (!$DB->get_record('user', array('id'=>$userid, 'deleted'=>0)) or isguestuser($userid)) {
+    if (!$DB->get_record('user', array('id' => $userid, 'deleted' => 0)) or isguestuser($userid)) {
         print_error('invaliduser');
     }
 }
 
 $enabled = grade_get_setting($courseid, 'report_forecast_enabledforstudents', $CFG->grade_report_forecast_enabledforstudents);
-$view_all = has_capability('moodle/grade:viewall', $context);
-$view_own = $userid == $USER->id and has_capability('moodle/grade:view', $context) and $course->showgrades;
-$view_user = has_capability('moodle/grade:viewall', context_user::instance($userid)) and $course->showgrades;
+$viewall = has_capability('moodle/grade:viewall', $context);
+$viewown = $userid == $USER->id and has_capability('moodle/grade:view', $context) and $course->showgrades;
+$viewuser = has_capability('moodle/grade:viewall', context_user::instance($userid)) and $course->showgrades;
 $url = $CFG->wwwroot . '/course/view.php?id=' . $courseid;
 
-if (!($view_all or ($view_own && $enabled) or $view_user)) {
-    // Be sure users are not automatically redirected back here if disabled after use
+if (!($viewall or ($viewown && $enabled) or $viewuser)) {
+    // Be sure users are not automatically redirected back here if disabled after use.
     $USER->grade_last_report[$course->id] = 'user';
-    // redirect them back to the course, letting them know it was disabled
+    // Redirect them back to the course, letting them know it was disabled.
     redirect($url, get_string('nopermissiontouseforecast', 'gradereport_forecast'), 1);
-    // if somehow they don't redirect, print an error and die
+    // If somehow they don't redirect, print an error and die.
     print_error('nopermissiontouseforecast', 'gradereport_forecast',  $url);
     echo $OUTPUT->footer();
     die();
 }
 
-/// return tracking object
-$gpr = new grade_plugin_return(array('type'=>'report', 'plugin'=>'forecast', 'courseid'=>$courseid, 'userid'=>$userid));
+// Return the tracking object.
+$gpr = new grade_plugin_return(array('type' => 'report', 'plugin' => 'forecast', 'courseid' => $courseid, 'userid' => $userid));
 
-/// last selected report session tracking
+// Last selected report session tracking.
 if (!isset($USER->grade_last_report)) {
     $USER->grade_last_report = array();
 }
@@ -85,43 +85,46 @@ $USER->grade_last_report[$course->id] = 'forecast';
 // First make sure we have proper final grades.
 grade_regrade_final_grades_if_required($course);
 
-if (has_capability('moodle/grade:viewall', $context)) { //Teachers will see all student reports
-    $groupmode    = groups_get_course_groupmode($course);   // Groups are being used
+if (has_capability('moodle/grade:viewall', $context)) {
+        // Teachers will see all student reports.
+    $groupmode    = groups_get_course_groupmode($course);
+        // Groups are being used.
     $currentgroup = groups_get_course_group($course, true);
 
-    if (!$currentgroup) {      // To make some other functions work better later
-        $currentgroup = NULL;
+    if (!$currentgroup) {
+            // To make some other functions work better later.
+        $currentgroup = null;
     }
 
     $isseparategroups = ($course->groupmode == SEPARATEGROUPS and !has_capability('moodle/site:accessallgroups', $context));
 
     if ($isseparategroups and (!$currentgroup)) {
-        // no separate group access, can view only self
+            // No separate group access, can view only self.
         $userid = $USER->id;
-        $user_selector = false;
+        $userselector = false;
     } else {
-        $user_selector = true;
+        $userselector = true;
     }
 
     $defaultgradeshowactiveenrol = !empty($CFG->grade_report_showonlyactiveenrol);
     $showonlyactiveenrol = get_user_preferences('grade_report_showonlyactiveenrol', $defaultgradeshowactiveenrol);
     $showonlyactiveenrol = $showonlyactiveenrol || !has_capability('moodle/course:viewsuspendedusers', $context);
 
-    // If a user is selected, show the report
-    if ( ! empty($userid)) {
+    // If a user is selected, show their report.
+    if ( !empty($userid)) {
         $report = new grade_report_forecast($courseid, $gpr, $context, $userid);
 
-        // echo '<pre>';
-        // var_dump($report->gtree);
-        // echo '</pre>';
+        $studentnamelink = html_writer::link(new moodle_url('/user/view.php', array(
+                                                                                    'id' => $report->user->id,
+                                                                                    'course' => $courseid
+                                                                                   )), fullname($report->user));
+        print_grade_page_head($courseid, 'report', 'forecast',
+                              get_string('pluginname', 'gradereport_forecast') . ' - ' . $studentnamelink,
+                              false, false, true, null, null, $report->user);
 
-        $studentnamelink = html_writer::link(new moodle_url('/user/view.php', array('id' => $report->user->id, 'course' => $courseid)), fullname($report->user));
-        print_grade_page_head($courseid, 'report', 'forecast', get_string('pluginname', 'gradereport_forecast') . ' - ' . $studentnamelink,
-                false, false, true, null, null, $report->user);
+        groups_print_course_menu($course, $gpr->get_return_url('index.php?id='.$courseid, array('userid' => 0)));
 
-        groups_print_course_menu($course, $gpr->get_return_url('index.php?id='.$courseid, array('userid'=>0)));
-
-        if ($user_selector) {
+        if ($userselector) {
             $renderer = $PAGE->get_renderer('gradereport_forecast');
             $showallusersoptions = false;
             echo $renderer->graded_users_selector('forecast', $course, $userid, $currentgroup, $showallusersoptions);
@@ -135,24 +138,24 @@ if (has_capability('moodle/grade:viewall', $context)) { //Teachers will see all 
             }
         }
     } else {
-        // @TODO: show a "blank" grade tree that is not populated with any real grades
-        
-        // Add tabs
+        // Add tabs.
         print_grade_page_head($courseid, 'report', 'forecast');
-        groups_print_course_menu($course, $gpr->get_return_url('index.php?id='.$courseid, array('userid'=>0)));
+        groups_print_course_menu($course, $gpr->get_return_url('index.php?id=' . $courseid, array('userid' => 0)));
 
-        if ($user_selector) {
+        if ($userselector) {
             $renderer = $PAGE->get_renderer('gradereport_forecast');
             echo $renderer->graded_users_selector('forecast', $course, $userid, $currentgroup, false);
         }
     }
-} else { //Students will see just their own report
-
-    // Create a report instance
+} else {
+    // Students will see just their own report.
+    // Create a report instance.
     $report = new grade_report_forecast($courseid, $gpr, $context, $userid);
 
-    // print the page
-    print_grade_page_head($courseid, 'report', 'forecast', get_string('pluginname', 'gradereport_forecast'). ' - '.fullname($report->user));
+    // Print the page.
+    print_grade_page_head($courseid, 'report', 'forecast', get_string(
+                                                                      'pluginname', 'gradereport_forecast'
+                                                                      ) . ' - '.fullname($report->user));
 
     if ($report->fill_table()) {
         echo '<br />'.$report->print_table(true);
@@ -171,6 +174,10 @@ if (grade_get_setting($courseid, 'report_forecast_mustmakeenabled', $CFG->grade_
     echo $report->getMustMakeModal();
 }
 
-echo '<script>$(document).ready(function() { listenForInputChanges(' . grade_get_setting($courseid, 'report_forecast_debouncewaittime', $CFG->grade_report_forecast_debouncewaittime) . ') });</script>';
+echo '<script>$(document).ready(function() {
+          listenForInputChanges(' . grade_get_setting($courseid,
+                                                      'report_forecast_debouncewaittime',
+                                                      $CFG->grade_report_forecast_debouncewaittime
+                                                     ) . ') });</script>';
 
 echo $OUTPUT->footer();

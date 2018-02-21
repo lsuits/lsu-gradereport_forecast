@@ -22,17 +22,17 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once '../../../config.php';
-require_once $CFG->libdir.'/gradelib.php';
-require_once $CFG->dirroot.'/grade/lib.php';
-require_once $CFG->dirroot.'/grade/report/forecast/lib.php';
+require_once('../../../config.php');
+require_once($CFG->libdir.'/gradelib.php');
+require_once($CFG->dirroot.'/grade/lib.php');
+require_once($CFG->dirroot.'/grade/report/forecast/lib.php');
 
 $courseid = required_param('courseid', PARAM_INT);
 $userid = required_param('userid', PARAM_INT);
 
 require_login();
 
-if ( ! $course = $DB->get_record('course', array('id' => $courseid))) {
+if (!$course = $DB->get_record('course', array('id' => $courseid))) {
     print_error('nocourseid');
 }
 
@@ -40,8 +40,8 @@ $gpr = new grade_plugin_return(['type' => 'report', 'plugin' => 'forecast', 'cou
 $context = context_course::instance($courseid);
 $PAGE->set_context($context);
 
-// get report instance with injected grade item input
+// Get report instance with injected grade item input.
 $report = new grade_report_forecast($courseid, $gpr, $context, $userid, null, $_POST);
 
-// return the json encoded response
-echo $report->getJsonResponse();
+// Return the json encoded response.
+echo $report->getjsonresponse();
