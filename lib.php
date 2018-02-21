@@ -412,7 +412,7 @@ class grade_report_forecast extends grade_report {
                     $categorygradeitems = $this->getelementchildren($element, ['item', 'category'], true);
 
                     // Get all grade values belonging to the given grade items, removing ungraded/uninput items from calculation.
-                    $categoryigradevalues = $this->getcategorygradeitemvaluesarray($category, $categorygradeitems, true);
+                    $categorygradevalues = $this->getcategorygradeitemvaluesarray($category, $categorygradeitems, true);
 
                     // Get the aggregate of this category using the given grade items and values.
                     $aggregate = $this->getcategorygradeaggregate($category, $categorygradeitems, $categorygradevalues, true);
@@ -1595,7 +1595,7 @@ function grade_report_forecast_settings_definition(&$mform) {
     $options = array(-1 => get_string('default', 'grades'),
                       GRADE_REPORT_HIDE_TOTAL_IF_CONTAINS_HIDDEN => get_string('hide'),
                       GRADE_REPORT_SHOW_TOTAL_IF_CONTAINS_HIDDEN => get_string('hidetotalshowexhiddenitems', 'grades'),
-                      GRADE_REPORT_SHOW_REAL_TOTAL_IF_CONTAINS_HIDDEN => get_string('hidetotalshowinchiddenitems', 'grades') );
+                      GRADE_REPORT_SHOW_REAL_TOTAL_IF_CONTAINS_HIDDEN => get_string('hidetotalshowinchiddenitems', 'grades'));
 
     if (empty($CFG->grade_report_forecast_showtotalsifcontainhidden)) {
         $options[-1] = get_string('defaultprev', 'grades', $options[0]);
