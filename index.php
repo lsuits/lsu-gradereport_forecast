@@ -111,7 +111,7 @@ if (has_capability('moodle/grade:viewall', $context)) {
     $showonlyactiveenrol = $showonlyactiveenrol || !has_capability('moodle/course:viewsuspendedusers', $context);
 
     // If a user is selected, show their report.
-    if ( !empty($userid)) {
+    if (!empty($userid)) {
         $report = new grade_report_forecast($courseid, $gpr, $context, $userid);
 
         $studentnamelink = html_writer::link(new moodle_url('/user/view.php', array(
